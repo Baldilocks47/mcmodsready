@@ -33,6 +33,9 @@ export const NO_ALTERNATIVES_CATEGORY = 'library';
 /** Minimum description similarity for an algorithmic suggestion. Below this we show nothing. */
 export const MIN_TEXT_SIM = 0.2;
 
+/** Below this many meaningful words in title + description, textual similarity is too noisy to use. */
+export const MIN_TOKENS = 5;
+
 const STOP = new Set(
   'the and for with your that this from into are you its can not but all any has have will more minecraft mod mods adds add added which also than when what other some like such only just very game player players allows makes using used use based version versions fabric neoforge forge quilt'.split(
     ' ',
@@ -143,7 +146,8 @@ export function alternativesFor(
   target: Omit<AltCandidate, 'ready'>,
   candidates: AltCandidate[],
   index: SimilarityIndex,
-  overrides: Override[] = [],
+  /** curated entry for this mod; an empty array means "curated: no known replacement" */
+  overrides: Override[] | undefined = undefined,
   limit = 3,
   now = Date.now(),
   /** slugs the target declares itself incompatible with (or that declare it): usually rivals doing the same job */
@@ -152,12 +156,15 @@ export function alternativesFor(
   const bySlug = new Map(candidates.map((c) => [c.slug, c]));
   const out: Alternative[] = [];
 
-  for (const o of overrides) {
+  for (const o of overrides ?? []) {
     const c = bySlug.get(o.slug);
     if (c?.ready) out.push({ slug: c.slug, title: c.title, score: Infinity, curated: true, note: o.note });
   }
   // A curated entry means we know the real replacements; don't pad with guesses.
-  if (overrides.length || target.categories.includes(NO_ALTERNATIVES_CATEGORY)) return out.slice(0, limit);
+  if (overrides || target.categories.includes(NO_ALTERNATIVES_CATEGORY)) return out.slice(0, limit);
+
+  // Too little text to compare (e.g. Create: "Aesthetic Technology that empowers the Player"): only trust rivals.
+  const thin = tokens(`${target.title} ${target.description}`).length < MIN_TOKENS;
 
   const maxLogDl = Math.log10(Math.max(10, ...candidates.map((c) => c.downloads)));
   const scored = candidates
@@ -179,7 +186,7 @@ export function alternativesFor(
       return { c, cat, text, rival, score: text * 0.6 + cat * 0.4 + rival + dl * 0.05 + recency * 0.02 };
     })
     // a declared rival only needs one corroborating signal: a shared category or some textual overlap
-    .filter((x) => (x.cat > 0 && x.text >= MIN_TEXT_SIM) || (x.rival && (x.cat > 0 || x.text >= MIN_TEXT_SIM / 2)))
+    .filter((x) => (!thin && x.cat > 0 && x.text >= MIN_TEXT_SIM) || (x.rival && (x.cat > 0 || x.text >= MIN_TEXT_SIM / 2)))
     .sort((a, b) => b.score - a.score);
 
   for (const { c, score } of scored) {

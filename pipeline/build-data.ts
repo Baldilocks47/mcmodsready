@@ -168,7 +168,7 @@ async function main() {
           const cs = cells.get(c.id)![d.id].status;
           return { ...c, ready: cs === 'ready' || (d.upcoming && cs === 'snapshot') };
         });
-        const alts = alternativesFor(m, candidates, index, overrides.get(m.slug) ?? [], 3, now, rivals);
+        const alts = alternativesFor(m, candidates, index, overrides.get(m.slug), 3, now, rivals);
         if (alts.length) {
           m.alts ??= {};
           (m.alts[loader] ??= {})[d.id] = alts.map((a) => ({ slug: a.slug, curated: a.curated, ...(a.note ? { note: a.note } : {}) }));

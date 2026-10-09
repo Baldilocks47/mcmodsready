@@ -185,17 +185,17 @@ describe('alternatives', () => {
   const index = new SimilarityIndex(cands);
 
   it('suggests similar, side-compatible, ready mods and never libraries', () => {
-    expect(alternativesFor(cands[0], cands, index, [], 3, NOW).map((a) => a.slug)).toEqual(['minimap-b']);
+    expect(alternativesFor(cands[0], cands, index, undefined, 3, NOW).map((a) => a.slug)).toEqual(['minimap-b']);
   });
   it('curated overrides win and suppress guesses', () => {
     expect(alternativesFor(cands[0], cands, index, [{ slug: 'zoom', note: 'test' }], 3, NOW)).toEqual([{ slug: 'zoom', title: 'Zoom', score: Infinity, curated: true, note: 'test' }]);
   });
   it('libraries get no algorithmic alternatives', () => {
-    expect(alternativesFor(cands[4], cands, index, [], 3, NOW)).toEqual([]);
+    expect(alternativesFor(cands[4], cands, index, undefined, 3, NOW)).toEqual([]);
   });
   it('declared incompatibilities (rivals) count as strong evidence', () => {
-    expect(alternativesFor(cands[6], cands, index, [], 3, NOW).map((a) => a.slug)).not.toContain('renderer');
-    expect(alternativesFor(cands[6], cands, index, [], 3, NOW, new Set(['renderer'])).map((a) => a.slug)).toContain('renderer');
+    expect(alternativesFor(cands[6], cands, index, undefined, 3, NOW).map((a) => a.slug)).not.toContain('renderer');
+    expect(alternativesFor(cands[6], cands, index, undefined, 3, NOW, new Set(['renderer'])).map((a) => a.slug)).toContain('renderer');
   });
   it('finds textual neighbours', () => {
     expect(index.neighbours('minimap-a', 3)[0]).toBe('minimap-b');
@@ -278,5 +278,31 @@ describe('past drops', () => {
     const s = deriveSupport([v(['26.3'])], 'fabric');
     expect(dropCell(s, drop('26.2'), ctx()).status).toBe('no_build');
     expect(dropCell(deriveSupport([v(['1.20.1'])], 'fabric'), drop('26.3'), ctx()).status).toBe('not_yet');
+  });
+});
+
+describe('thin descriptions', () => {
+  it('skips guessed alternatives when there is too little text, but keeps rivals', () => {
+    const base = { downloads: 1000, updated: '2026-09-01T00:00:00Z', env: 'both' as const, categories: ['technology'] };
+    const c: AltCandidate[] = [
+      { ...base, slug: 'create', title: 'Create', description: 'Aesthetic Technology that empowers the Player', ready: false },
+      { ...base, slug: 'citymod', title: 'City Mod', description: 'Aesthetic technology blocks for the player city', ready: true },
+    ];
+    const idx = new SimilarityIndex(c);
+    expect(alternativesFor(c[0], c, idx, undefined, 3, NOW)).toEqual([]);
+    expect(alternativesFor(c[0], c, idx, undefined, 3, NOW, new Set(['citymod'])).map((a) => a.slug)).toEqual(['citymod']);
+  });
+});
+
+describe('curated "no replacement"', () => {
+  it('an empty curated list suppresses guesses', () => {
+    const base = { downloads: 1000, updated: '2026-09-01T00:00:00Z', env: 'client' as const, categories: ['utility'] };
+    const c: AltCandidate[] = [
+      { ...base, slug: 'a', title: 'Map A', description: 'minimap waypoints world map overlay radar', ready: false },
+      { ...base, slug: 'b', title: 'Map B', description: 'minimap waypoints world map overlay compass', ready: true },
+    ];
+    const idx = new SimilarityIndex(c);
+    expect(alternativesFor(c[0], c, idx, undefined, 3, NOW).length).toBe(1);
+    expect(alternativesFor(c[0], c, idx, [], 3, NOW)).toEqual([]);
   });
 });

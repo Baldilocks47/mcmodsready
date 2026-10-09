@@ -1,5 +1,6 @@
 // Hand-curated alternatives. Format (data/alternatives.json):
 // { "mod-slug": [{ "slug": "replacement-slug", "note": "why" }] }
+// An empty list means "no known replacement": suppresses guessed suggestions for that mod.
 import { readFile } from 'node:fs/promises';
 import type { Override } from '../src/lib/core/alternatives';
 

@@ -1,14 +1,87 @@
 {
-  "simple-voice-chat": [{ "slug": "plasmo-voice", "note": "Proximity voice chat; needs installing on server and clients" }],
-  "jei": [
-    { "slug": "emi", "note": "Recipe viewer; can read JEI plugins" },
-    { "slug": "rei", "note": "Recipe viewer" }
+  "simple-voice-chat": [
+    {
+      "slug": "plasmo-voice",
+      "note": "Proximity voice chat; needs installing on server and clients"
+    }
   ],
-  "emi": [{ "slug": "jei", "note": "Recipe viewer" }],
-  "rei": [{ "slug": "emi", "note": "Recipe viewer" }, { "slug": "jei", "note": "Recipe viewer" }],
-  "indium": [{ "slug": "sodium", "note": "Sodium now includes Fabric Rendering API support; Indium is no longer needed" }],
-  "embeddium": [{ "slug": "sodium", "note": "Sodium now supports NeoForge directly" }],
-  "oculus": [{ "slug": "iris", "note": "Iris now supports NeoForge directly" }],
-  "xaeros-minimap": [{ "slug": "journeymap", "note": "Minimap and world map" }],
-  "journeymap": [{ "slug": "xaeros-minimap", "note": "Minimap" }]
+  "jei": [
+    {
+      "slug": "emi",
+      "note": "Recipe viewer; can read JEI plugins"
+    },
+    {
+      "slug": "rei",
+      "note": "Recipe viewer"
+    }
+  ],
+  "emi": [
+    {
+      "slug": "rei",
+      "note": "Recipe viewer"
+    },
+    {
+      "slug": "jei",
+      "note": "Recipe viewer"
+    }
+  ],
+  "rei": [
+    {
+      "slug": "emi",
+      "note": "Recipe viewer"
+    },
+    {
+      "slug": "jei",
+      "note": "Recipe viewer"
+    }
+  ],
+  "trinkets": [
+    {
+      "slug": "accessories",
+      "note": "Accessory slots API with Trinkets compatibility; only helps if your other mods support it"
+    }
+  ],
+  "curios": [
+    {
+      "slug": "accessories",
+      "note": "Accessory slots API with Curios compatibility; only helps if your other mods support it"
+    }
+  ],
+  "indium": [
+    {
+      "slug": "sodium",
+      "note": "Sodium now includes Fabric Rendering API support; Indium is no longer needed"
+    }
+  ],
+  "embeddium": [
+    {
+      "slug": "sodium",
+      "note": "Sodium now supports NeoForge directly"
+    }
+  ],
+  "oculus": [
+    {
+      "slug": "iris",
+      "note": "Iris now supports NeoForge directly"
+    }
+  ],
+  "xaeros-minimap": [
+    {
+      "slug": "journeymap",
+      "note": "Minimap and world map"
+    }
+  ],
+  "xaeros-world-map": [
+    {
+      "slug": "journeymap",
+      "note": "World map and minimap"
+    }
+  ],
+  "journeymap": [
+    {
+      "slug": "xaeros-minimap",
+      "note": "Minimap"
+    }
+  ],
+  "create": []
 }
