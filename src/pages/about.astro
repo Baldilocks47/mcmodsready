@@ -1,0 +1,61 @@
+---
+import Base from '../layouts/Base.astro';
+import { meta } from '../lib/build-data';
+const m = meta();
+---
+
+<Base title="About: how mod readiness is worked out" description="How the tracker decides whether a mod is ready, where the data comes from, and how your privacy is protected.">
+  <article class="prose">
+    <h1>About</h1>
+    <p>
+      This site answers one question every time Minecraft ships a new version: <em>are my mods ready yet?</em> It tracks the
+      top {m.tracked.fabric} Fabric and {m.tracked.neoforge} NeoForge mods on Modrinth and refreshes automatically.
+    </p>
+
+    <h2>What the statuses mean</h2>
+    <ul>
+      <li><strong>✓ Ready</strong>: the author has published a <em>release</em> build declared compatible with that version (any patch, e.g. 26.1.2 counts for 26.1).</li>
+      <li><strong>β Beta only</strong>: only beta or alpha builds are declared.</li>
+      <li><strong>◐ Snapshot build</strong>: for upcoming versions, a build exists for a snapshot, pre-release or release candidate.</li>
+      <li><strong>✕ Not yet</strong>: the mod supports this loader but nothing is declared for this version.</li>
+      <li><strong>⊘ Inactive</strong>: no updates for over a year and not on recent versions.</li>
+    </ul>
+    <p>
+      All of this is <strong>author-declared</strong>. A mod can work without being tagged, or be tagged and still have bugs. Treat
+      "ready" as "declared compatible", and back up your world before upgrading.
+    </p>
+
+    <h2>Server, client or both</h2>
+    <p>
+      Each mod says on Modrinth whether it's needed on the client, the server, or both. Your list is <em>server ready</em> when every
+      mod the server needs is ready, and likewise for the client. Mods marked optional on both sides (common for libraries and
+      utilities) count on both, because if they're in your list you're running them; we flag them so you know you could leave
+      them off one side. If a mod doesn't say, we assume it's needed on both.
+    </p>
+
+    <h2>Alternatives</h2>
+    <p>
+      For mods that aren't ready, we suggest a few ready mods with similar descriptions and categories, plus a short hand-checked
+      list of known replacements. Suggestions are a starting point, not an equivalent: check features before switching.
+      Libraries have no alternatives because other mods depend on them by name.
+    </p>
+
+    <h2>Privacy</h2>
+    <p>
+      No accounts, no cookies, no ad trackers. Your lists are stored in your own browser. Share links carry the list in the part
+      of the URL after <code>#</code>, which browsers never send to our server. We use cookieless, aggregate page-view counts only.
+      Mod icons load from Modrinth's CDN.
+    </p>
+
+    <h2>Credits</h2>
+    <p>
+      Mod data from <a href="https://modrinth.com" rel="noopener">Modrinth</a>; version data from Mojang's public version manifest.
+      Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+    </p>
+  </article>
+</Base>
+
+<style>
+  .prose { max-width: 720px; }
+  .prose h2 { margin-top: 1.5rem; }
+</style>

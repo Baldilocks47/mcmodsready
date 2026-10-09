@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.svelte';
+import { feed, meta, stats } from '../lib/build-data';
+
+const m = meta();
+const latest = m.drops.find((d) => !d.upcoming)!;
+const s = { fabric: stats('fabric'), neoforge: stats('neoforge') };
+---
+
+<Base
+  title={`Are my mods ready for Minecraft ${latest.id}? Fabric & NeoForge mod tracker`}
+  description={`Live readiness of the top Fabric and NeoForge mods for Minecraft ${latest.id}. Check your own mod list for server and client, and find alternatives for mods that haven't updated.`}
+>
+  <Hero client:load meta={m} stats={s} feed={feed().events} />
+</Base>

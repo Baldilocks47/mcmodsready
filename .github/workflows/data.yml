@@ -1,0 +1,118 @@
+name: data
+
+# Refreshes mod data and publishes it to R2. Triggered by:
+#  - the nightly schedule (also rebuilds the site so per-mod pages stay fresh for search)
+#  - the Cloudflare Worker (new release/snapshot, and every 30 min for 48h after a release)
+#  - manual runs
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  repository_dispatch:
+    types: [refresh-data]
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Rebuild and deploy the site too
+        type: boolean
+        default: true
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+env:
+  MODRINTH_USER_AGENT: ${{ vars.MODRINTH_USER_AGENT }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  R2_ENDPOINT: https://${{ secrets.CF_ACCOUNT_ID }}.r2.cloudflarestorage.com
+  BUCKET: s3://mcmodsready-data
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      rebuild: ${{ steps.decide.outputs.rebuild }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Restore version cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/versions
+          key: versions-${{ github.run_id }}
+          restore-keys: versions-
+
+      - name: API contract check
+        run: npx tsx pipeline/contract.ts
+
+      - name: Fetch previously published data
+        run: aws s3 sync "$BUCKET/data" .prev --endpoint-url "$R2_ENDPOINT" --exclude "projects/*" --only-show-errors || echo "no previous data"
+
+      - name: Build data
+        run: npx tsx pipeline/build-data.ts --top 500 --out out/data
+
+      - name: Guard
+        run: npx tsx pipeline/guard.ts .prev out/data
+
+      - name: Publish to R2
+        run: aws s3 sync out/data "$BUCKET/data" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+
+      - name: Daily snapshot (history)
+        if: github.event_name == 'schedule'
+        run: |
+          day=$(date -u +%F)
+          for f in meta.json matrix-fabric.json matrix-neoforge.json stats-fabric.json stats-neoforge.json; do
+            aws s3 cp "out/data/$f" "$BUCKET/snapshots/$day/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: data
+          path: out/data
+          retention-days: 3
+
+      - id: decide
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] \
+            || [ "${{ github.event.client_payload.rebuild }}" = "true" ] \
+            || [ "${{ inputs.rebuild }}" = "true" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rebuild=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  site:
+    needs: data
+    if: needs.data.outputs.rebuild == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: data
+          path: out/data
+      - name: Build site
+        run: npm run build
+        env:
+          DATA_DIR: out/data
+          PUBLIC_DATA_BASE: /data
+          PUBLIC_HOST_CTA: ${{ vars.PUBLIC_HOST_CTA }}
+          PUBLIC_KOFI_URL: ${{ vars.PUBLIC_KOFI_URL }}
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy dist --project-name mcmodsready --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}

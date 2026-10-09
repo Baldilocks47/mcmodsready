@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import Matrix from '../components/Matrix.svelte';
+import { meta } from '../lib/build-data';
+
+const m = meta();
+const latest = m.drops.find((d) => !d.upcoming)!;
+---
+
+<Base
+  title={`Mod readiness for Minecraft ${latest.id}: top Fabric & NeoForge mods`}
+  description={`Which of the top Fabric and NeoForge mods have updated to Minecraft ${m.drops.map((d) => d.id).join(', ')}. Updated automatically from Modrinth.`}
+>
+  <h1>All tracked mods</h1>
+  <Matrix client:load drops={m.drops} loaders={m.loaders} />
+</Base>

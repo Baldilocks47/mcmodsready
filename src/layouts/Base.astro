@@ -1,0 +1,89 @@
+---
+import '../styles/global.css';
+import { DECLARED_NOTE } from '../lib/ui/status';
+import { meta } from '../lib/build-data';
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+const m = meta();
+const canonical = new URL(Astro.url.pathname, Astro.site);
+// Affiliate + donation links. Plain links via our own /go/ redirect: no third-party scripts or cookies.
+const KOFI = import.meta.env.PUBLIC_KOFI_URL as string | undefined;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#2f7d32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap row">
+        <a class="brand" href="/" aria-label="mcmodsready home">mc<span>mods</span><b>ready</b></a>
+        <nav aria-label="Main">
+          <a href="/mods">All mods</a>
+          <a href="/list">My list</a>
+          <a href="/about">About</a>
+        </nav>
+      </div>
+    </header>
+    <main class="wrap">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap small muted">
+        <p>
+          Data from <a href="https://modrinth.com" rel="noopener">Modrinth</a> and the Mojang version manifest.
+          Updated <time datetime={m.generatedAt} data-ago>{m.generatedAt.slice(0, 16).replace('T', ' ')} UTC</time>.
+          {DECLARED_NOTE}
+        </p>
+        <p>
+          Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+        </p>
+        <p>
+          No accounts, no cookies, no tracking. Your lists live in your browser.
+          {KOFI && <> · <a href={KOFI} rel="noopener">Support the site on Ko-fi</a></>}
+        </p>
+      </div>
+    </footer>
+    <script>
+      // Stale-data banner + relative "updated" time.
+      const t = document.querySelector<HTMLTimeElement>('time[data-ago]');
+      if (t) {
+        const age = Date.now() - Date.parse(t.dateTime);
+        const h = Math.round(age / 3.6e6);
+        t.textContent = h < 1 ? 'less than an hour ago' : h < 48 ? `${h}h ago` : `${Math.round(h / 24)} days ago`;
+        if (age > 24 * 3.6e6) {
+          const b = document.createElement('div');
+          b.className = 'stale';
+          b.setAttribute('role', 'status');
+          b.textContent = `Heads up: data was last refreshed ${t.textContent}. Statuses may be out of date.`;
+          document.querySelector('main')?.prepend(b);
+        }
+      }
+    </script>
+    <style>
+      .site-header { border-bottom: 1px solid var(--border); background: var(--surface); margin-bottom: 24px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; flex-wrap: wrap; }
+      .brand { font-size: 1.25rem; text-decoration: none; color: var(--text); letter-spacing: -0.02em; }
+      .brand b { color: var(--accent); }
+      nav { display: flex; gap: 16px; }
+      nav a { color: var(--text); text-decoration: none; }
+      nav a:hover { text-decoration: underline; }
+      .site-footer { border-top: 1px solid var(--border); margin-top: 48px; padding: 16px 0 32px; }
+      :global(.stale) { background: var(--s-pre-bg); color: var(--s-pre); padding: 8px 12px; border-radius: 8px; margin-bottom: 16px; }
+    </style>
+  </body>
+</html>

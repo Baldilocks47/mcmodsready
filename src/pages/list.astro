@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+import ListBuilder from '../components/ListBuilder.svelte';
+import { meta } from '../lib/build-data';
+
+const m = meta();
+// Label for the hosting affiliate button; unset = no CTA shown.
+const hostCta = (import.meta.env.PUBLIC_HOST_CTA as string | undefined) ?? null;
+---
+
+<Base
+  title="Check if your mod list is ready: server, client or both"
+  description="Pin your Fabric or NeoForge mods and see whether your server and client are ready for the latest Minecraft version, what's blocking you, and what to use instead."
+>
+  <h1>Is my mod list ready?</h1>
+  <ListBuilder client:only="svelte" drops={m.drops} loaders={m.loaders} {hostCta} />
+  <noscript><p>The list checker needs JavaScript. The <a href="/mods">full mod table</a> works without it.</p></noscript>
+</Base>
