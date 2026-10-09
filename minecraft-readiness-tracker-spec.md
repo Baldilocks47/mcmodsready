@@ -1,4 +1,4 @@
-# Minecraft Readiness Tracker: product and build spec (for Claude Code)
+# Minecraft Readiness Tracker: product and build spec
 
 Status: draft v1, written 8 Oct 2026. Items marked **[verify]** need checking against current official docs before launch.
 
