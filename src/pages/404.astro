@@ -5,4 +5,9 @@ import Base from '../layouts/Base.astro';
 <Base title="Page not found" description="This page doesn't exist.">
   <h1>Page not found</h1>
   <p>Try <a href="/mods">all mods</a> or <a href="/list">check your list</a>.</p>
+  <script is:inline>
+    // /mod/<slug> pages are only pre-built for popular mods; send the rest to the live page.
+    var m = /^\/mod\/([^/?#]+)/.exec(location.pathname);
+    if (m) location.replace('/m?p=' + encodeURIComponent(decodeURIComponent(m[1])));
+  </script>
 </Base>

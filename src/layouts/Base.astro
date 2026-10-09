@@ -27,6 +27,7 @@ const KOFI = import.meta.env.PUBLIC_KOFI_URL as string | undefined;
     <meta property="og:type" content="website" />
     <meta name="theme-color" content="#2f7d32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <slot name="head" />
   </head>
   <body>
     <header class="site-header">

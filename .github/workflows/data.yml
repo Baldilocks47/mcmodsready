@@ -1,8 +1,9 @@
 name: data
 
-# Refreshes mod data and publishes it to R2. Triggered by:
-#  - the nightly schedule (also rebuilds the site so per-mod pages stay fresh for search)
-#  - the Cloudflare Worker (new release/snapshot, and every 30 min for 48h after a release)
+# Refreshes mod data, publishes changed files to R2, and (when asked) rebuilds + deploys the site.
+# Triggered by:
+#  - the nightly schedule (always rebuilds, so pre-rendered mod pages stay fresh for search)
+#  - the Cloudflare Worker cron (new release/snapshot -> rebuild; release-day refreshes -> data only)
 #  - manual runs
 on:
   schedule:
@@ -29,11 +30,9 @@ env:
   BUCKET: s3://mcmodsready-data
 
 jobs:
-  data:
+  refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    outputs:
-      rebuild: ${{ steps.decide.outputs.rebuild }}
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,41 +41,63 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Restore version cache
-        uses: actions/cache@v4
+      # .cache/mods = per-mod support maps keyed by Modrinth's modified date (makes runs incremental)
+      # .cache/published.json = hashes of what's in R2 (so only changed files are uploaded)
+      - name: Restore pipeline cache
+        uses: actions/cache/restore@v4
         with:
-          path: .cache/versions
-          key: versions-${{ github.run_id }}
-          restore-keys: versions-
+          path: .cache
+          key: pipeline-${{ github.run_id }}
+          restore-keys: pipeline-
 
       - name: API contract check
         run: npx tsx pipeline/contract.ts
 
-      - name: Fetch previously published data
-        run: aws s3 sync "$BUCKET/data" .prev --endpoint-url "$R2_ENDPOINT" --exclude "projects/*" --only-show-errors || echo "no previous data"
+      - name: Fetch previously published summary files
+        run: |
+          mkdir -p .prev
+          for f in meta.json matrix-fabric.json matrix-neoforge.json matrix-forge.json; do
+            aws s3 cp "$BUCKET/data/$f" ".prev/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors || true
+          done
 
+      # A cold cache needs ~16k version lists (~1h). Cap per run so a first backfill spans two runs
+      # comfortably inside the timeout; mods not fetched yet are looked up live by the site meanwhile.
       - name: Build data
-        run: npx tsx pipeline/build-data.ts --top 500 --out out/data
+        run: npx tsx pipeline/build-data.ts --max-fetch 12000 --out out/data
+
+      - name: Save pipeline cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: pipeline-${{ github.run_id }}
 
       - name: Guard
         run: npx tsx pipeline/guard.ts .prev out/data
 
-      - name: Publish to R2
-        run: aws s3 sync out/data "$BUCKET/data" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+      - name: Publish changed files to R2
+        run: |
+          npx tsx pipeline/stage-changed.ts out/data out/stage/data .cache/published.json
+          if [ -n "$(ls -A out/stage/data)" ]; then
+            aws s3 sync out/stage/data "$BUCKET/data" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+          fi
+          while IFS= read -r f; do
+            [ -n "$f" ] && aws s3 rm "$BUCKET/data/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+          done < out/stage/deleted.txt
+
+      - name: Save published manifest
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: pipeline-${{ github.run_id }}-published
 
       - name: Daily snapshot (history)
         if: github.event_name == 'schedule'
         run: |
           day=$(date -u +%F)
-          for f in meta.json matrix-fabric.json matrix-neoforge.json stats-fabric.json stats-neoforge.json; do
+          for f in meta.json matrix-fabric.json matrix-neoforge.json matrix-forge.json stats-fabric.json stats-neoforge.json stats-forge.json; do
             aws s3 cp "out/data/$f" "$BUCKET/snapshots/$day/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors
           done
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: data
-          path: out/data
-          retention-days: 3
 
       - id: decide
         run: |
@@ -84,34 +105,19 @@ jobs:
             || [ "${{ github.event.client_payload.rebuild }}" = "true" ] \
             || [ "${{ inputs.rebuild }}" = "true" ]; then
             echo "rebuild=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "rebuild=false" >> "$GITHUB_OUTPUT"
           fi
 
-  site:
-    needs: data
-    if: needs.data.outputs.rebuild == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: data
-          path: out/data
       - name: Build site
+        if: steps.decide.outputs.rebuild == 'true'
         run: npm run build
         env:
           DATA_DIR: out/data
           PUBLIC_DATA_BASE: /data
           PUBLIC_HOST_CTA: ${{ vars.PUBLIC_HOST_CTA }}
           PUBLIC_KOFI_URL: ${{ vars.PUBLIC_KOFI_URL }}
+
       - name: Deploy Worker + static site
+        if: steps.decide.outputs.rebuild == 'true'
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

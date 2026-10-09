@@ -6,6 +6,7 @@ export const STATUS: Record<Status, { icon: string; label: string; short: string
   prerelease: { icon: 'β', label: 'Beta only', short: 'Beta', hint: 'Only beta or alpha builds are declared' },
   snapshot: { icon: '◐', label: 'Snapshot build', short: 'Snap', hint: 'Builds declared for snapshots or pre-releases of this drop' },
   not_yet: { icon: '✕', label: 'Not yet', short: 'Not yet', hint: 'Supports this loader, but nothing declared for this drop yet' },
+  no_build: { icon: '–', label: 'No build', short: 'No build', hint: 'Supports this loader, but never published a build for this version' },
   not_applicable: { icon: '–', label: 'No build for loader', short: 'N/A', hint: 'This mod is not published for this loader' },
   dropped: { icon: '⊘', label: 'Inactive', short: 'Inactive', hint: 'No updates for over a year and missing recent drops' },
   unknown: { icon: '?', label: 'Unknown', short: '?', hint: 'No data or conflicting data' },
@@ -19,7 +20,7 @@ export const ENV: Record<Env, string> = {
   unknown: 'Unknown side (treated as both)',
 };
 
-export const LOADER_LABEL = { fabric: 'Fabric', neoforge: 'NeoForge' } as const;
+export const LOADER_LABEL = { fabric: 'Fabric', neoforge: 'NeoForge', forge: 'Forge' } as const;
 
 export const DECLARED_NOTE =
   'Statuses are author-declared on Modrinth: "ready" means declared compatible, not tested.';

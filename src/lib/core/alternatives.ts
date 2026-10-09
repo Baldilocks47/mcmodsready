@@ -49,9 +49,14 @@ type Vec = Map<string, number>;
 export class SimilarityIndex {
   private vecs = new Map<string, Vec>();
   private catIdf = new Map<string, number>();
+  /** token -> [slug, weight] postings, for fast nearest-neighbour search */
+  private postings = new Map<string, [string, number][]>();
+  private maxDf: number;
 
   constructor(docs: Pick<AltCandidate, 'slug' | 'title' | 'description' | 'categories'>[]) {
     const n = docs.length || 1;
+    // very common tokens add little and make postings huge; skip them for neighbour search
+    this.maxDf = Math.max(50, Math.floor(n * 0.05));
     const df = new Map<string, number>();
     const cdf = new Map<string, number>();
     const toks = docs.map((d) => tokens(`${d.title} ${d.description}`));
@@ -72,7 +77,26 @@ export class SimilarityIndex {
       norm = Math.sqrt(norm) || 1;
       for (const [t, w] of v) v.set(t, w / norm);
       this.vecs.set(d.slug, v);
+      for (const [t, w] of v) {
+        if ((df.get(t) ?? 0) > this.maxDf) continue;
+        let list = this.postings.get(t);
+        if (!list) this.postings.set(t, (list = []));
+        list.push([d.slug, w]);
+      }
     });
+  }
+
+  /** The k most textually similar documents (approximate: ignores very common tokens). */
+  neighbours(slug: string, k = 40): string[] {
+    const v = this.vecs.get(slug);
+    if (!v) return [];
+    const acc = new Map<string, number>();
+    for (const [t, w] of v) {
+      for (const [other, w2] of this.postings.get(t) ?? []) {
+        if (other !== slug) acc.set(other, (acc.get(other) ?? 0) + w * w2);
+      }
+    }
+    return [...acc.entries()].sort((a, b) => b[1] - a[1]).slice(0, k).map(([s]) => s);
   }
 
   text(a: string, b: string): number {
@@ -122,6 +146,8 @@ export function alternativesFor(
   overrides: Override[] = [],
   limit = 3,
   now = Date.now(),
+  /** slugs the target declares itself incompatible with (or that declare it): usually rivals doing the same job */
+  rivals: Set<string> = new Set(),
 ): Alternative[] {
   const bySlug = new Map(candidates.map((c) => [c.slug, c]));
   const out: Alternative[] = [];
@@ -149,9 +175,11 @@ export function alternativesFor(
       const dl = Math.log10(Math.max(10, c.downloads)) / maxLogDl;
       const ageDays = (now - Date.parse(c.updated)) / 86_400_000;
       const recency = Math.max(0, 1 - ageDays / 365);
-      return { c, cat, text, score: text * 0.6 + cat * 0.4 + dl * 0.05 + recency * 0.02 };
+      const rival = rivals.has(c.slug) ? 0.5 : 0;
+      return { c, cat, text, rival, score: text * 0.6 + cat * 0.4 + rival + dl * 0.05 + recency * 0.02 };
     })
-    .filter((x) => x.cat > 0 && x.text >= MIN_TEXT_SIM)
+    // a declared rival only needs one corroborating signal: a shared category or some textual overlap
+    .filter((x) => (x.cat > 0 && x.text >= MIN_TEXT_SIM) || (x.rival && (x.cat > 0 || x.text >= MIN_TEXT_SIM / 2)))
     .sort((a, b) => b.score - a.score);
 
   for (const { c, score } of scored) {

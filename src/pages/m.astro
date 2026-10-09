@@ -1,0 +1,12 @@
+---
+// Any mod, looked up in the browser. Used for mods without a pre-rendered /mod/<slug> page.
+import Base from '../layouts/Base.astro';
+import LiveMod from '../components/LiveMod.svelte';
+import { meta } from '../lib/build-data';
+const m = meta();
+---
+
+<Base title="Is this mod updated for the latest Minecraft?" description="Mod readiness for any Fabric, NeoForge or Forge mod on Modrinth.">
+  <meta name="robots" content="noindex" slot="head" />
+  <LiveMod client:only="svelte" drops={m.drops} versions={m.versions} popularLegacy={m.popularLegacy} />
+</Base>

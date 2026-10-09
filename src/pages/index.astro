@@ -2,15 +2,17 @@
 import Base from '../layouts/Base.astro';
 import Hero from '../components/Hero.svelte';
 import { feed, meta, stats } from '../lib/build-data';
+import type { Loader } from '../lib/core/types';
+import type { StatsFile } from '../lib/data-schema';
 
 const m = meta();
 const latest = m.drops.find((d) => !d.upcoming)!;
-const s = { fabric: stats('fabric'), neoforge: stats('neoforge') };
+const s = Object.fromEntries(m.loaders.map((l) => [l, stats(l)])) as Record<Loader, StatsFile>;
 ---
 
 <Base
-  title={`Are my mods ready for Minecraft ${latest.id}? Fabric & NeoForge mod tracker`}
-  description={`Live readiness of the top Fabric and NeoForge mods for Minecraft ${latest.id}. Check your own mod list for server and client, and find alternatives for mods that haven't updated.`}
+  title={`Are my mods ready for Minecraft ${latest.id}? Fabric, NeoForge & Forge mod tracker`}
+  description={`Live readiness of the top Fabric, NeoForge and Forge mods for Minecraft ${latest.id}. Check your own mod list for server and client, and find alternatives for mods that haven't updated.`}
 >
   <Hero client:load meta={m} stats={s} feed={feed().events} />
 </Base>

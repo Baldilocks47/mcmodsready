@@ -19,9 +19,9 @@
   onMount(async () => {
     try {
       const get = (f: string) => fetch(`${DATA_BASE}/${f}`).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
-      const [m, sf, sn, fd] = await Promise.all([get('meta.json'), get('stats-fabric.json'), get('stats-neoforge.json'), get('feed.json')]);
+      const [m, fd, ...ss] = await Promise.all([get('meta.json'), get('feed.json'), ...initialMeta.loaders.map((l) => get(`stats-${l}.json`))]);
       meta = m;
-      stats = { fabric: sf, neoforge: sn };
+      stats = Object.fromEntries(initialMeta.loaders.map((l, i) => [l, ss[i]])) as Record<Loader, StatsFile>;
       feed = fd.events;
     } catch {
       // keep pre-rendered data

@@ -1,118 +1,35 @@
 ---
-// One pre-rendered page per tracked mod, e.g. "Is Sodium ready for 26.3?". Rebuilt nightly.
+// Pre-rendered pages for the most downloaded mods (search traffic). Every other mod is served by
+// /m?p=<slug>, which the 404 page redirects to, so /mod/<anything> always works.
 import Base from '../../layouts/Base.astro';
-import { meta, project, projectSlugs } from '../../lib/build-data';
-import { ENV, LOADER_LABEL, STATUS, DECLARED_NOTE, fmtDownloads, modrinthUrl } from '../../lib/ui/status';
+import ModView from '../../components/ModView.svelte';
+import { hasMod, meta, modFile, pages } from '../../lib/build-data';
+import { LOADER_LABEL } from '../../lib/ui/status';
 import type { Loader } from '../../lib/core/types';
 
 export function getStaticPaths() {
-  return projectSlugs().map((slug) => ({ params: { slug } }));
+  return pages().map((p) => ({ params: { slug: p.slug }, props: { id: p.id } }));
 }
 
-const { slug } = Astro.params;
-const p = project(slug!);
+const { id } = Astro.props as { id: string };
+const mod = modFile(id);
 const m = meta();
 const latest = m.drops.find((d) => !d.upcoming)!;
-const loaders = Object.keys(p.loaders) as Loader[];
-const released = m.drops.filter((d) => !d.upcoming);
-const titleOf = (s: string) => {
-  try {
-    return project(s).title;
-  } catch {
-    return s;
-  }
-};
+const loaders = (Object.keys(mod.loaders) as Loader[]).map((l) => LOADER_LABEL[l]).join(' / ');
 
-const verdict = loaders.map((l) => ({ l, s: p.loaders[l]!.cells[latest.id]?.status ?? 'unknown' }));
-const anyReady = verdict.some((v) => v.s === 'ready');
-const answer = anyReady
-  ? `Yes: ${p.title} has a release declared for ${latest.id} on ${verdict.filter((v) => v.s === 'ready').map((v) => LOADER_LABEL[v.l]).join(' and ')}.`
-  : `Not yet: ${p.title} has no release declared for ${latest.id}${verdict.some((v) => v.s === 'prerelease') ? ' (beta builds are available)' : ''}.`;
+// Titles for alternative links (by slug).
+const altSlugs = new Set(Object.values(mod.alts ?? {}).flatMap((byDrop) => Object.values(byDrop ?? {}).flat().map((a) => a.slug)));
+const titles: Record<string, string> = {};
+const slugToId = new Map(pages().map((p) => [p.slug, p.id]));
+for (const s of altSlugs) {
+  const altId = slugToId.get(s);
+  if (altId && hasMod(altId)) titles[s] = modFile(altId).title;
+}
 ---
 
 <Base
-  title={`Is ${p.title} updated for Minecraft ${latest.id}? (${loaders.map((l) => LOADER_LABEL[l]).join(' / ')})`}
-  description={`${answer} See ${p.title} readiness for every recent Minecraft version, how fast it usually updates, and alternatives.`}
+  title={`Is ${mod.title} updated for Minecraft ${latest.id}? (${loaders})`}
+  description={`Is ${mod.title} ready for Minecraft ${latest.id}? See its status for every recent version, older versions like ${m.popularLegacy.fabric?.[0] ?? '1.20.1'}, update speed, and alternatives.`}
 >
-  <article>
-    <header class="head">
-      {p.icon && <img class="icon" src={p.icon} alt="" width="64" height="64" />}
-      <div>
-        <h1>Is {p.title} ready for {latest.id}?</h1>
-        <p class="answer">{answer}</p>
-        <p class="muted small">
-          {fmtDownloads(p.downloads)} downloads · {ENV[p.env]} · <a href={modrinthUrl(p.slug)} rel="noopener">View on Modrinth</a>
-        </p>
-      </div>
-    </header>
-    <p class="small muted">{p.description}</p>
-
-    <div class="grid grid-2">
-      {loaders.map((l) => {
-        const d = p.loaders[l]!;
-        return (
-          <section class="card">
-            <h2>{LOADER_LABEL[l]}</h2>
-            <table>
-              <tbody>
-                {m.drops.map((drop) => {
-                  const c = d.cells[drop.id];
-                  const waiting = drop.upcoming && c?.status === 'not_yet';
-                  const st = waiting ? { icon: '…', label: 'Waiting' } : STATUS[c?.status ?? 'unknown'];
-                  const cls = waiting ? 'not_applicable' : (c?.status ?? 'unknown');
-                  return (
-                    <tr>
-                      <th scope="row">{drop.id}{drop.upcoming && <span class="muted small"> (upcoming)</span>}</th>
-                      <td><span class={`chip s-${cls}`}><span class="i" aria-hidden="true">{st.icon}</span>{st.label}</span></td>
-                      <td class="small muted">
-                        {c?.lagDays != null && (c.lagDays === 0 ? 'day one' : `+${c.lagDays} days`)}
-                        {c?.patches?.length ? ` · ${c.patches.join(', ')}` : ''}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {Object.entries(d.alts).filter(([drop]) => drop === latest.id).map(([, alts]) => (
-              <p class="small">
-                {alts.some((a) => a.curated) ? 'Known replacements' : 'Similar mods ready for ' + latest.id}:{' '}
-                {alts.map((a, i) => <>{i ? ', ' : ''}<a href={`/mod/${a.slug}`} title={a.note}>{titleOf(a.slug)}</a></>)}
-                {!alts.some((a) => a.curated) && <span class="muted"> (similar category; check features before switching)</span>}
-              </p>
-            ))}
-          </section>
-        );
-      })}
-    </div>
-
-    <section class="card history">
-      <h2>Update history</h2>
-      <p class="small muted">Days from each Minecraft release to {p.title}'s first release build.</p>
-      <ul>
-        {released.map((drop) => (
-          <li>
-            <strong>{drop.id}</strong>:{' '}
-            {loaders.map((l, i) => {
-              const lag = p.loaders[l]!.history[drop.id];
-              return <>{i ? ' · ' : ''}{LOADER_LABEL[l]} {lag == null ? 'no release' : lag === 0 ? 'day one' : `${lag} days`}</>;
-            })}
-          </li>
-        ))}
-      </ul>
-    </section>
-
-    <p><a class="btn primary" href="/list">Check your whole mod list →</a></p>
-    <p class="small muted">{DECLARED_NOTE}</p>
-  </article>
+  <ModView mod={mod} drops={m.drops} versions={m.versions} popularLegacy={m.popularLegacy} {titles} />
 </Base>
-
-<style>
-  .head { display: flex; gap: 16px; align-items: flex-start; }
-  .icon { width: 64px; height: 64px; border-radius: 12px; flex: none; }
-  h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); }
-  .answer { font-size: 1.15rem; }
-  .grid { margin: 16px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
-  .history ul { margin: 0; padding-left: 20px; }
-</style>

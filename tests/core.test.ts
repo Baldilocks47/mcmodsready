@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { alternativesFor, SimilarityIndex, sideCompatible, type AltCandidate } from '../src/lib/core/alternatives';
 import { listReadiness, type ListItem } from '../src/lib/core/readiness';
-import { cellFor, envOf, lagDays, median } from '../src/lib/core/status';
-import type { ModVersion } from '../src/lib/core/types';
-import { buildDrops, dropOf } from '../src/lib/core/versions';
+import { dropCell, envOf, median, versionCell, type StatusContext } from '../src/lib/core/status';
+import { deriveSupport, epochDay } from '../src/lib/core/support';
+import { cellAt, isUpcoming, parseTarget } from '../src/lib/core/targets';
+import type { ModFile, ModVersion } from '../src/lib/core/types';
+import { buildDrops, buildGameVersions, dropOf } from '../src/lib/core/versions';
 
 const manifest = [
+  { id: '1.20.1', type: 'release', releaseTime: '2023-06-12T00:00:00Z' },
+  { id: '23w51a', type: 'snapshot', releaseTime: '2023-12-18T00:00:00Z' },
   { id: '1.21.11', type: 'release', releaseTime: '2025-12-09T00:00:00Z' },
   { id: '26.1-snapshot-1', type: 'snapshot', releaseTime: '2026-01-10T00:00:00Z' },
   { id: '26.1', type: 'release', releaseTime: '2026-03-24T00:00:00Z' },
@@ -14,15 +18,19 @@ const manifest = [
   { id: '26.3-rc-1', type: 'snapshot', releaseTime: '2026-09-10T00:00:00Z' },
   { id: '26.3', type: 'release', releaseTime: '2026-09-15T00:00:00Z' },
   { id: '26.4-snapshot-1', type: 'snapshot', releaseTime: '2026-09-22T00:00:00Z' },
+  { id: 'b1.7.3', type: 'old_beta', releaseTime: '2011-07-08T00:00:00Z' },
 ];
 const drops = buildDrops(manifest);
+const versions = buildGameVersions(manifest);
+const src = { drops, versions };
 const drop = (id: string) => drops.find((d) => d.id === id)!;
-
-function v(game: string[], type: ModVersion['version_type'] = 'release', date = '2026-09-16T00:00:00Z', loaders = ['fabric']): ModVersion {
-  return { id: Math.random().toString(36), project_id: 'p', version_number: '1', game_versions: game, loaders, version_type: type, date_published: date, dependencies: [] };
-}
-const project = { loaders: ['fabric'], updated: '2026-09-20T00:00:00Z' };
+const gv = (id: string) => versions.find((v) => v.id === id)!;
 const NOW = Date.parse('2026-10-09T00:00:00Z');
+
+function v(game: string[], type: ModVersion['version_type'] = 'release', date = '2026-09-16T00:00:00Z', loaders = ['fabric'], deps: ModVersion['dependencies'] = []): ModVersion {
+  return { id: Math.random().toString(36), project_id: 'p', version_number: '1', game_versions: game, loaders, version_type: type, date_published: date, dependencies: deps };
+}
+const ctx = (updated = '2026-09-20T00:00:00Z'): StatusContext => ({ latestDrops: [drop('26.3'), drop('26.2')], currentDrop: '26.3', updated, now: NOW });
 
 describe('versions', () => {
   it('groups year-based versions into drops and ignores 1.x', () => {
@@ -32,40 +40,90 @@ describe('versions', () => {
     expect(drops.map((d) => d.id)).toEqual(['26.4', '26.3', '26.2', '26.1']);
     expect(drop('26.1').patches).toEqual(['26.1', '26.1.1']);
     expect(drop('26.4').upcoming).toBe(true);
-    expect(drop('26.3').releasedAt).toBe('2026-09-15T00:00:00Z');
+  });
+  it('lists every release and snapshot as a target, newest first, without old betas', () => {
+    expect(versions.map((x) => x.id)).toEqual(['26.4-snapshot-1', '26.3', '26.3-rc-1', '26.2', '26.1.1', '26.1', '26.1-snapshot-1', '1.21.11', '23w51a', '1.20.1']);
+    expect(gv('23w51a').type).toBe('snapshot');
+    expect(gv('26.3-rc-1')).toMatchObject({ type: 'snapshot', drop: '26.3' });
   });
 });
 
-describe('cellFor', () => {
-  const latest = drops.filter((d) => !d.upcoming).slice(0, 2);
-  const cell = (vs: ModVersion[], d: string, p = project) => cellFor(p, vs, 'fabric', drop(d), latest, NOW);
+describe('deriveSupport', () => {
+  it('keeps the best build type and first release day per game version', () => {
+    const s = deriveSupport(
+      [
+        v(['26.3'], 'beta', '2026-09-15T12:00:00Z'),
+        v(['26.3'], 'release', '2026-09-20T00:00:00Z'),
+        v(['26.3', '26.2'], 'release', '2026-09-18T00:00:00Z'),
+        v(['26.3'], 'release', '2026-09-25T00:00:00Z', ['neoforge']),
+      ],
+      'fabric',
+    )!;
+    expect(s.v['26.3']).toEqual(['r', epochDay('2026-09-18T00:00:00Z')]);
+    expect(s.v['26.2'][0]).toBe('r');
+    expect(deriveSupport([v(['26.3'], 'release', undefined, ['neoforge'])], 'fabric')).toBeUndefined();
+  });
+  it('records required deps of the newest build and every declared incompatibility', () => {
+    const s = deriveSupport(
+      [
+        v(['26.2'], 'release', '2026-06-20T00:00:00Z', ['fabric'], [{ project_id: 'OLDDEP00', dependency_type: 'required' }, { project_id: 'RIVAL001', dependency_type: 'incompatible' }]),
+        v(['26.3'], 'release', '2026-09-20T00:00:00Z', ['fabric'], [{ project_id: 'FABRICAP', dependency_type: 'required' }, { project_id: 'OPTION00', dependency_type: 'optional' }]),
+      ],
+      'fabric',
+    )!;
+    expect(s.deps).toEqual(['FABRICAP']);
+    expect(s.incompat).toEqual(['RIVAL001']);
+  });
+});
 
-  it('ready when a release build targets any patch in the drop', () => {
-    const c = cell([v(['26.1.1'])], '26.1');
-    expect(c.status).toBe('ready');
-    expect(c.patches).toEqual(['26.1.1']);
+describe('dropCell', () => {
+  const s = (vs: ModVersion[]) => deriveSupport(vs, 'fabric');
+  it('ready when a release build targets any patch in the drop, with lag', () => {
+    const c = dropCell(s([v(['26.1.1'], 'release', '2026-04-03T00:00:00Z')]), drop('26.1'), ctx());
+    expect(c).toEqual({ status: 'ready', patches: ['26.1.1'], lagDays: 10 });
   });
-  it('prerelease when only beta/alpha builds exist', () => {
-    expect(cell([v(['26.3'], 'beta')], '26.3').status).toBe('prerelease');
+  it('lag clamps early builds to 0', () => {
+    expect(dropCell(s([v(['26.3'], 'release', '2026-09-01T00:00:00Z')]), drop('26.3'), ctx()).lagDays).toBe(0);
   });
-  it('rc-tagged builds do not count as ready for the release', () => {
-    expect(cell([v(['26.3-rc-1'])], '26.3').status).toBe('not_yet');
+  it('prerelease, snapshot, not yet, not applicable, dropped', () => {
+    expect(dropCell(s([v(['26.3'], 'beta')]), drop('26.3'), ctx()).status).toBe('prerelease');
+    expect(dropCell(s([v(['26.3-rc-1'])]), drop('26.3'), ctx()).status).toBe('not_yet');
+    expect(dropCell(s([v(['26.4-snapshot-1'], 'alpha')]), drop('26.4'), ctx()).status).toBe('snapshot');
+    expect(dropCell(undefined, drop('26.3'), ctx()).status).toBe('not_applicable');
+    expect(dropCell(s([v(['1.20.1'])]), drop('26.3'), ctx('2025-01-01T00:00:00Z')).status).toBe('dropped');
   });
-  it('snapshot status for upcoming drops', () => {
-    expect(cell([v(['26.4-snapshot-1'], 'alpha')], '26.4').status).toBe('snapshot');
-    expect(cell([v(['26.3'])], '26.4').status).toBe('not_yet');
+});
+
+describe('versionCell (exact versions)', () => {
+  const s = deriveSupport([v(['1.20.1'], 'release', '2023-07-01T00:00:00Z'), v(['1.21.11'], 'beta'), v(['23w51a'], 'alpha'), v(['26.2'])], 'fabric');
+  it('handles legacy releases, betas and old snapshots', () => {
+    expect(versionCell(s, gv('1.20.1'), ctx()).status).toBe('ready');
+    expect(versionCell(s, gv('1.21.11'), ctx()).status).toBe('prerelease');
+    expect(versionCell(s, gv('23w51a'), ctx()).status).toBe('snapshot');
   });
-  it('not applicable when the loader is unsupported', () => {
-    expect(cellFor(project, [v(['26.3'], 'release', undefined, ['neoforge'])], 'neoforge', drop('26.3'), latest, NOW).status).toBe('not_applicable');
-    expect(cell([v(['26.3'], 'release', undefined, ['neoforge'])], '26.3').status).toBe('not_applicable');
+  it('"no build" for old versions, "not yet" for current ones', () => {
+    expect(versionCell(s, gv('26.1'), ctx()).status).toBe('no_build');
+    expect(versionCell(s, gv('26.3'), ctx()).status).toBe('not_yet');
+    expect(versionCell(s, gv('26.4-snapshot-1'), ctx()).status).toBe('not_yet');
   });
-  it('dropped when idle for a year and absent from recent drops', () => {
-    const old = { loaders: ['fabric'], updated: '2025-01-01T00:00:00Z' };
-    expect(cell([v(['1.21.4'])], '26.3', old).status).toBe('dropped');
+});
+
+describe('targets', () => {
+  const mod = { updated: '2026-09-20T00:00:00Z', loaders: { fabric: deriveSupport([v(['1.20.1']), v(['26.3'], 'beta')], 'fabric') } } as unknown as ModFile;
+  it('parses drop and exact-version keys', () => {
+    expect(parseTarget('d:26.3', src)?.kind).toBe('drop');
+    expect(parseTarget('v:1.20.1', src)?.kind).toBe('version');
+    expect(parseTarget('v:9.9', src)).toBeNull();
   });
-  it('lag counts days from release, clamping early builds to 0', () => {
-    expect(lagDays([v(['26.3'], 'release', '2026-09-20T12:00:00Z')], drop('26.3'))).toBe(5);
-    expect(lagDays([v(['26.3'], 'release', '2026-09-01T00:00:00Z')], drop('26.3'))).toBe(0);
+  it('computes cells for any target', () => {
+    expect(cellAt(mod, 'fabric', parseTarget('v:1.20.1', src)!, src, NOW).status).toBe('ready');
+    expect(cellAt(mod, 'fabric', parseTarget('d:26.3', src)!, src, NOW).status).toBe('prerelease');
+    expect(cellAt(mod, 'forge', parseTarget('d:26.3', src)!, src, NOW).status).toBe('not_applicable');
+  });
+  it('knows when "not yet" is normal', () => {
+    expect(isUpcoming(parseTarget('d:26.4', src)!, src)).toBe(true);
+    expect(isUpcoming(parseTarget('v:26.4-snapshot-1', src)!, src)).toBe(true);
+    expect(isUpcoming(parseTarget('v:26.3-rc-1', src)!, src)).toBe(false);
   });
 });
 
@@ -86,15 +144,10 @@ describe('listReadiness', () => {
   const item = (slug: string, env: ListItem['env'], status: ListItem['status']): ListItem => ({ slug, title: slug, env, status });
 
   it('computes server / client / both independently', () => {
-    const r = listReadiness([
-      item('sodium', 'client', 'not_yet'),
-      item('lithium', 'either', 'not_yet'),
-      item('carpet', 'server', 'ready'),
-      item('fabric-api', 'both', 'ready'),
-    ]);
+    const r = listReadiness([item('sodium', 'client', 'not_yet'), item('lithium', 'either', 'not_yet'), item('carpet', 'server', 'ready'), item('fabric-api', 'both', 'ready')]);
     expect(r.server).toEqual({ ready: 2, total: 3, ok: false });
     expect(r.client).toEqual({ ready: 1, total: 3, ok: false });
-    expect(r.both.ok).toBe(false);
+    expect(r.both).toEqual({ ready: 2, total: 4, ok: false });
     expect(r.blockers.map((b) => [b.slug, b.sides, b.optional])).toEqual([
       ['sodium', ['client'], false],
       ['lithium', ['server', 'client'], true],
@@ -107,8 +160,7 @@ describe('listReadiness', () => {
     expect(r.blockers[0].envUnknown).toBe(true);
   });
   it('can accept prerelease builds', () => {
-    const r = listReadiness([item('jei', 'both', 'prerelease')], { acceptPrerelease: true });
-    expect(r.both.ok).toBe(true);
+    expect(listReadiness([item('jei', 'both', 'prerelease')], { acceptPrerelease: true }).both.ok).toBe(true);
   });
   it('20-mod list: everything ready means ready everywhere', () => {
     const items = Array.from({ length: 20 }, (_, i) => item(`m${i}`, (['client', 'server', 'both', 'either'] as const)[i % 4], 'ready'));
@@ -127,19 +179,26 @@ describe('alternatives', () => {
     { ...base, slug: 'zoom', title: 'Zoom', description: 'Zoom in like a spyglass', categories: ['utility'], ready: true },
     { ...base, slug: 'server-map', title: 'Server Map', description: 'Web world map with waypoints for servers', categories: ['utility', 'adventure'], env: 'server', ready: true },
     { ...base, slug: 'lib', title: 'Lib', description: 'minimap waypoints world map library', categories: ['library', 'adventure'], ready: true },
+    { ...base, slug: 'renderer', title: 'Fast Renderer', description: 'Rendering chunks sooner with smarter caching of terrain meshes and shaders', categories: ['optimization'], ready: true },
+    { ...base, slug: 'renderer-x', title: 'Render X', description: 'Rendering engine replacement for frame rates', categories: ['optimization'], ready: false },
   ];
   const index = new SimilarityIndex(cands);
 
   it('suggests similar, side-compatible, ready mods and never libraries', () => {
-    const alts = alternativesFor(cands[0], cands, index, [], 3, NOW);
-    expect(alts.map((a) => a.slug)).toEqual(['minimap-b']);
+    expect(alternativesFor(cands[0], cands, index, [], 3, NOW).map((a) => a.slug)).toEqual(['minimap-b']);
   });
   it('curated overrides win and suppress guesses', () => {
-    const alts = alternativesFor(cands[0], cands, index, [{ slug: 'zoom', note: 'test' }], 3, NOW);
-    expect(alts).toEqual([{ slug: 'zoom', title: 'Zoom', score: Infinity, curated: true, note: 'test' }]);
+    expect(alternativesFor(cands[0], cands, index, [{ slug: 'zoom', note: 'test' }], 3, NOW)).toEqual([{ slug: 'zoom', title: 'Zoom', score: Infinity, curated: true, note: 'test' }]);
   });
   it('libraries get no algorithmic alternatives', () => {
     expect(alternativesFor(cands[4], cands, index, [], 3, NOW)).toEqual([]);
+  });
+  it('declared incompatibilities (rivals) count as strong evidence', () => {
+    expect(alternativesFor(cands[6], cands, index, [], 3, NOW).map((a) => a.slug)).not.toContain('renderer');
+    expect(alternativesFor(cands[6], cands, index, [], 3, NOW, new Set(['renderer'])).map((a) => a.slug)).toContain('renderer');
+  });
+  it('finds textual neighbours', () => {
+    expect(index.neighbours('minimap-a', 3)[0]).toBe('minimap-b');
   });
   it('side compatibility', () => {
     expect(sideCompatible('both', 'client')).toBe(false);
@@ -156,7 +215,6 @@ describe('median', () => {
   });
 });
 
-
 describe('guard', async () => {
   const { regressionRatio } = await import('../pipeline/guard');
   const mk = (statuses: string[]) => ({
@@ -168,5 +226,57 @@ describe('guard', async () => {
   it('measures the share of ready cells that regressed', () => {
     // @ts-expect-error partial fixtures
     expect(regressionRatio(mk(['ready', 'ready', 'ready', 'not_yet']), mk(['ready', 'not_yet', 'ready', 'ready']))).toBeCloseTo(1 / 3);
+  });
+});
+
+describe('stage-changed', async () => {
+  const { stage } = await import('../pipeline/stage-changed');
+  const { mkdtemp, mkdir, writeFile, readFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  it('stages only new/changed files and lists deletions', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mmr-'));
+    const out = join(root, 'out');
+    await mkdir(join(out, 'm'), { recursive: true });
+    await writeFile(join(out, 'a.json'), '1');
+    await writeFile(join(out, 'm', 'b.json'), '2');
+    const manifest = join(root, 'manifest.json');
+    expect(await stage(out, join(root, 'stage'), manifest)).toEqual({ total: 2, changed: 2, deleted: 0 });
+    await writeFile(join(out, 'a.json'), '1b');
+    await rm(join(out, 'm', 'b.json'));
+    expect(await stage(out, join(root, 'stage'), manifest)).toEqual({ total: 1, changed: 1, deleted: 1 });
+    expect((await readFile(join(root, 'deleted.txt'), 'utf8')).trim()).toBe('m/b.json');
+    await rm(root, { recursive: true, force: true });
+  });
+});
+
+describe('regressions', () => {
+  it('envOf combines multiple environment values (Create: both + server-only)', () => {
+    expect(envOf({ client_side: 'optional', server_side: 'required', environment: ['client_and_server', 'server_only_client_optional'] })).toBe('both');
+    expect(envOf({ client_side: 'optional', server_side: 'optional', environment: ['client_or_server', 'client_only'] })).toBe('client');
+  });
+  it('required libraries depend on the target version (JEI needs MezzConfig only on 26.3)', async () => {
+    const { depsAt } = await import('../src/lib/core/targets');
+    const s = deriveSupport(
+      [
+        v(['1.20.1'], 'release', '2023-07-01T00:00:00Z', ['fabric'], [{ project_id: 'FABRICAP', dependency_type: 'required' }]),
+        v(['26.3'], 'release', '2026-09-20T00:00:00Z', ['fabric'], [
+          { project_id: 'FABRICAP', dependency_type: 'required' },
+          { project_id: 'MEZZCONF', dependency_type: 'required' },
+        ]),
+      ],
+      'fabric',
+    )!;
+    const mod = { updated: '2026-09-20T00:00:00Z', loaders: { fabric: s } } as unknown as ModFile;
+    expect(depsAt(mod, 'fabric', parseTarget('d:26.3', src)!)).toEqual(['FABRICAP', 'MEZZCONF']);
+    expect(depsAt(mod, 'fabric', parseTarget('v:1.20.1', src)!)).toEqual(['FABRICAP']);
+  });
+});
+
+describe('past drops', () => {
+  it('"no build" for an older drop the mod skipped, "not yet" only for the current one', () => {
+    const s = deriveSupport([v(['26.3'])], 'fabric');
+    expect(dropCell(s, drop('26.2'), ctx()).status).toBe('no_build');
+    expect(dropCell(deriveSupport([v(['1.20.1'])], 'fabric'), drop('26.3'), ctx()).status).toBe('not_yet');
   });
 });

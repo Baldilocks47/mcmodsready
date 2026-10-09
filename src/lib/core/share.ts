@@ -6,21 +6,22 @@ export interface ModList {
   id: string;
   name: string;
   loader: Loader;
-  /** target drop id, e.g. "26.3" */
-  drop: string;
+  /** "d:26.3" for a drop (any patch), or "v:1.20.1" / "v:26.4-snapshot-2" for an exact version */
+  target: string;
   acceptPrerelease: boolean;
   /** Modrinth project ids */
   mods: string[];
 }
 
 const ID_RE = /^[A-Za-z0-9]{8}$/;
+const TARGET_RE = /^[dv]:[A-Za-z0-9._-]{1,40}$/;
 
 export function encodeList(l: ModList): string {
   const p = new URLSearchParams();
   p.set('v', '1');
   p.set('n', l.name);
   p.set('l', l.loader);
-  p.set('d', l.drop);
+  p.set('t', l.target);
   if (l.acceptPrerelease) p.set('b', '1');
   p.set('m', l.mods.join('.'));
   return p.toString();
@@ -32,14 +33,23 @@ export function decodeList(fragment: string, newId: () => string): ModList | nul
   const loader = p.get('l') as Loader;
   if (!LOADERS.includes(loader)) return null;
   const mods = (p.get('m') ?? '').split('.').filter((x) => ID_RE.test(x));
+  // older links used d=<drop>
+  const target = p.get('t') ?? (p.get('d') ? `d:${p.get('d')}` : '');
   return {
     id: newId(),
     name: (p.get('n') ?? 'Shared list').slice(0, 80),
     loader,
-    drop: p.get('d') ?? '',
+    target: TARGET_RE.test(target) ? target : '',
     acceptPrerelease: p.get('b') === '1',
     mods: [...new Set(mods)].slice(0, 500),
   };
+}
+
+/** Lists saved before exact-version targets existed had `drop` instead of `target`. */
+export function migrateList(l: ModList & { drop?: string }): ModList {
+  if (!l.target && l.drop) l.target = `d:${l.drop}`;
+  delete l.drop;
+  return l;
 }
 
 /** Pull slugs/ids out of pasted text: Modrinth URLs, slugs, or one name per line. */

@@ -1,62 +1,75 @@
 # mcmodsready
 
-Is your Minecraft mod list ready for the new version? A static site that tracks the top Fabric and NeoForge mods on
-Modrinth for every Minecraft drop, checks your own list for server / client / both, and suggests alternatives.
+Is your Minecraft mod list ready for the new version? Tracks Fabric, NeoForge and Forge mods on Modrinth for every
+Minecraft version (drops, older releases like 1.20.1, and snapshots), checks your own list for server / client / both,
+and suggests alternatives. Live at https://mcmodsready.com.
 
-Spec: [minecraft-readiness-tracker-spec.md](minecraft-readiness-tracker-spec.md).
+Spec and decisions: [minecraft-readiness-tracker-spec.md](minecraft-readiness-tracker-spec.md).
 
 ## How it fits together
 
 ```
-Mojang manifest ─┐                       ┌─> R2 bucket (data/*.json) ──> Worker serves /data/*
-                 ├─> GitHub Actions ─────┤
-Modrinth API v2 ─┘   (pipeline/)         └─> nightly: Astro build ──> Cloudflare Pages (static site)
-        ▲
-        └── Cloudflare Worker cron (every 10 min) triggers the pipeline on a new release/snapshot,
-            and every 30 min for 48h after a release
+Mojang manifest ─┐
+                 ├─> GitHub Actions (pipeline/) ──> R2 bucket: data/*.json (changed files only)
+Modrinth API v2 ─┘        │
+                          └─ nightly / new version: Astro build ──> wrangler deploy
+                                                                         │
+                         One Cloudflare Worker on mcmodsready.com  <─────┘
+                           - static site (dist/ via ASSETS)
+                           - /data/*  from R2
+                           - /go/*    cookie-free affiliate redirects
+                           - cron (10 min): new release/snapshot or release-day window -> triggers the pipeline
+Browser ── for mods below the download threshold, looks them up live on Modrinth with the same core code
 ```
 
-- `src/lib/core/`: pure logic shared by pipeline and site (status, readiness, alternatives, share links). Unit-tested.
-- `pipeline/`: fetches data and writes JSON shards (`build-data.ts`), checks API shape (`contract.ts`), refuses bad
-  publishes (`guard.ts`).
-- `src/`: Astro site with Svelte islands. Per-mod pages are pre-rendered for search; live numbers are fetched from `/data`.
-- `worker/`: Cloudflare Worker for the cron, `/data/*` and the cookie-free `/go/<partner>` affiliate redirect.
+- **Coverage**: every mod with 10k+ downloads (~15.8k across the three loaders) is precomputed. Anything else is looked
+  up live in the browser, so mixed lists of popular and obscure mods behave identically.
+- **Any target**: a drop ("26.3", any patch), an exact version, an older release, or any snapshot/pre-release/RC.
+- `src/lib/core/`: pure logic shared by pipeline and browser (support maps, status, targets, readiness, alternatives, share links).
+- `pipeline/`: `build-data.ts` (incremental: only re-fetches mods whose Modrinth modified date changed), `contract.ts`
+  (fails if API shapes change), `guard.ts` (refuses bad publishes), `stage-changed.ts` (uploads only changed files).
+- `src/`: Astro + Svelte. ~5,000 most-downloaded mods get pre-rendered `/mod/<slug>` pages; the 404 page sends any other
+  `/mod/<slug>` to the live `/m?p=<slug>` page.
+- `worker/`: the Cloudflare Worker. Config in `wrangler.toml` at the repo root.
 - `data/alternatives.json`: hand-curated replacements (beat the algorithm; keep it small).
+
+## Data files
+
+| File | Contents |
+|---|---|
+| `meta.json` | versions, drops, popular older versions, counts |
+| `matrix-<loader>.json` | top 500 mods with a status per recent drop |
+| `stats-<loader>.json` | top-100 readiness and update speed (day 1/7/30) |
+| `feed.json` | newly ready mods |
+| `m/<projectId>.json` | one mod: support map for every game version and loader, deps, alternatives |
+| `v/<loader>/<version>.json` | which tracked mods have a build for one exact version (extra grid columns) |
+| `pages.json` | mods with pre-rendered pages |
 
 ## Local development
 
 ```bash
 npm install
-npm run data        # fetch real data into public/data (about 30s first time, cached after)
+npm run data        # full first run fetches ~16k version lists (~1h); later runs only fetch changes
 npm run dev         # http://localhost:4321
 npm test
 ```
 
-## Going live: one-time setup
+For a quick local dataset: `npx tsx pipeline/build-data.ts --max-per-loader 300`.
 
-Things only you can do (accounts, payment, secrets):
+## Production setup (done once)
 
-1. **Domain**: register `mcmodsready.com` (Cloudflare Registrar is at-cost). Add it to Cloudflare.
-2. **GitHub**: create a repo and push. In *Settings → Secrets and variables → Actions* add:
-   - Secrets: `CF_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (Pages: Edit), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
-   - Variables: `MODRINTH_USER_AGENT` (e.g. `mcmodsready/1.0 (https://mcmodsready.com; contact@…)`, which Modrinth
-     requires to include contact info), optionally `PUBLIC_HOST_CTA` (affiliate button text) and `PUBLIC_KOFI_URL`
-3. **Cloudflare**:
-   - R2 bucket `mcmodsready-data`, plus an R2 API token (gives the access key pair above)
-   - Pages project `mcmodsready` (direct upload), custom domain `mcmodsready.com`
-   - Web Analytics (cookieless) on the Pages project
-   - KV namespace for the Worker → put its id in `worker/wrangler.toml`
-4. **Worker**: edit `worker/wrangler.toml` (`GITHUB_REPO`, KV id, `AFFILIATES` once approved), then
-   ```bash
-   cd worker && npx wrangler secret put GITHUB_TOKEN && npx wrangler deploy
-   ```
-   `GITHUB_TOKEN` is a fine-grained PAT for this repo only, with *Contents: read and write* (needed for repository_dispatch).
-5. Run the **data** workflow once by hand (Actions → data → Run workflow).
+1. Cloudflare: R2 bucket `mcmodsready-data`, KV namespace (id in `wrangler.toml`), domain on Cloudflare.
+2. **Open Workers & Pages in the dashboard once** so Cloudflare creates the account's workers.dev subdomain; cron
+   triggers can't be attached until it exists. Then `npx wrangler deploy`.
+3. Worker secret: `npx wrangler secret put GITHUB_TOKEN` (fine-grained PAT, this repo only, *Contents: read and write*).
+4. GitHub repository secrets: `CF_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (template **Edit Cloudflare Workers**),
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. Repository variables: `MODRINTH_USER_AGENT`, `PUBLIC_KOFI_URL`,
+   later `PUBLIC_HOST_CTA`.
+5. Optional: enable Analytics Engine in the dashboard and uncomment the `CLICKS` binding for affiliate click counts.
+
+The first pipeline run on a cold cache fetches up to 12,000 version lists; the next run finishes the rest.
 
 ## Monetisation (cookie-free by design)
 
-- Hosting affiliate: a single disclosed CTA on the list page when a server list is ready, via `/go/host`.
-- Self-served sponsor slot (not built yet; add when a sponsor signs).
-- Ko-fi: plain link in the footer (`PUBLIC_KOFI_URL`).
-
-No ad networks until traffic justifies a consent banner. See spec section 15.
+Hosting affiliate CTA on the list page (`/go/host`, set `AFFILIATES` in `wrangler.toml` and `PUBLIC_HOST_CTA`), Ko-fi link
+in the footer. No ad networks until traffic justifies a consent banner. See spec section 15.

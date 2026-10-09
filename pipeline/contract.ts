@@ -2,6 +2,7 @@
 // Runs before every pipeline run. Usage: npx tsx pipeline/contract.ts
 import { fetchManifest } from './mojang';
 import { projects, versions } from './modrinth';
+import type { ModProject } from '../src/lib/core/types';
 
 const problems: string[] = [];
 const expect = (ok: boolean, msg: string) => ok || problems.push(msg);
@@ -13,7 +14,7 @@ expect(isStr(manifest.latest?.release), 'mojang: latest.release');
 expect(isArr(manifest.versions) && manifest.versions.every((v) => isStr(v.id) && isStr(v.type) && isStr(v.releaseTime)), 'mojang: versions[]');
 
 // Sodium (AANobbMI) is long-lived and multi-loader: a good canary.
-const [p] = await projects(['AANobbMI']);
+const [p] = await projects<ModProject>(['AANobbMI']);
 expect(!!p, 'modrinth: bulk project lookup');
 if (p) {
   for (const k of ['id', 'slug', 'title', 'description', 'client_side', 'server_side', 'updated', 'project_type'] as const)
@@ -21,7 +22,7 @@ if (p) {
   for (const k of ['categories', 'loaders'] as const) expect(isArr(p[k]), `modrinth project.${k}`);
   expect(typeof p.downloads === 'number', 'modrinth project.downloads');
 }
-const vs = await versions('AANobbMI');
+const vs = (await versions('AANobbMI')) ?? [];
 expect(vs.length > 0, 'modrinth: version list');
 const v = vs[0];
 if (v) {

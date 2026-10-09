@@ -9,7 +9,9 @@ const m = meta();
     <h1>About</h1>
     <p>
       This site answers one question every time Minecraft ships a new version: <em>are my mods ready yet?</em> It tracks the
-      top {m.tracked.fabric} Fabric and {m.tracked.neoforge} NeoForge mods on Modrinth and refreshes automatically.
+      {m.tracked.fabric.toLocaleString()} Fabric, {m.tracked.neoforge.toLocaleString()} NeoForge and {m.tracked.forge.toLocaleString()} Forge
+      mods on Modrinth (everything with {m.minDownloads.toLocaleString()}+ downloads) and refreshes automatically. Any other mod is looked
+      up live from Modrinth when you add it, so every mod works the same way.
     </p>
 
     <h2>What the statuses mean</h2>
@@ -18,6 +20,7 @@ const m = meta();
       <li><strong>β Beta only</strong>: only beta or alpha builds are declared.</li>
       <li><strong>◐ Snapshot build</strong>: for upcoming versions, a build exists for a snapshot, pre-release or release candidate.</li>
       <li><strong>✕ Not yet</strong>: the mod supports this loader but nothing is declared for this version.</li>
+      <li><strong>– No build</strong>: for older versions, the mod never published a build for that exact version.</li>
       <li><strong>⊘ Inactive</strong>: no updates for over a year and not on recent versions.</li>
     </ul>
     <p>
@@ -35,8 +38,8 @@ const m = meta();
 
     <h2>Alternatives</h2>
     <p>
-      For mods that aren't ready, we suggest a few ready mods with similar descriptions and categories, plus a short hand-checked
-      list of known replacements. Suggestions are a starting point, not an equivalent: check features before switching.
+      For mods that aren't ready, we suggest a few ready mods with similar descriptions and categories, mods that declare
+      themselves incompatible with it (usually because they do the same job), plus a short hand-checked list of known replacements. Suggestions are a starting point, not an equivalent: check features before switching.
       Libraries have no alternatives because other mods depend on them by name.
     </p>
 
@@ -44,7 +47,8 @@ const m = meta();
     <p>
       No accounts, no cookies, no ad trackers. Your lists are stored in your own browser. Share links carry the list in the part
       of the URL after <code>#</code>, which browsers never send to our server. We use cookieless, aggregate page-view counts only.
-      Mod icons load from Modrinth's CDN.
+      Mod icons load from Modrinth's CDN, and when you search for a mod or add a less popular one, your browser asks
+      Modrinth's public API directly (Modrinth sees that request, just as if you browsed their site).
     </p>
 
     <h2>Credits</h2>

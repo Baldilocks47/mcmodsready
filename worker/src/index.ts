@@ -49,8 +49,8 @@ async function serveData(req: Request, url: URL, env: Env): Promise<Response> {
   if (!obj) return env.ASSETS.fetch(req);
   const headers = new Headers({
     'content-type': 'application/json; charset=utf-8',
-    // meta/stats/feed change often on release day; project files less so
-    'cache-control': key.includes('/projects/') ? 'public, max-age=900' : 'public, max-age=120',
+    // summary files (meta, matrix, stats, feed) change often on release day; per-mod (m/) and per-version (v/) files less so
+    'cache-control': /^data\/(m|v)\//.test(key) ? 'public, max-age=900' : 'public, max-age=120',
     etag: obj.httpEtag,
   });
   return new Response(obj.body, { headers });

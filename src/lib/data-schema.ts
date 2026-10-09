@@ -1,20 +1,30 @@
 // Shape of the JSON files the pipeline publishes and the site reads.
-import type { Cell, Drop, Env, Loader } from './core/types';
+//   meta.json                     versions, drops, loaders, counts
+//   matrix-<loader>.json          top mods with a cell per window drop (grid + landing)
+//   stats-<loader>.json           top-100 readiness and update-speed history
+//   feed.json                     newly ready events
+//   m/<projectId>.json            ModFile: full support map for one tracked mod
+//   v/<loader>/<gameVersion>.json which tracked mods have a build for one exact version
+//   pages.json                    mods that get a pre-rendered /mod/<slug> page
+import type { Cell, Drop, Env, GameVersion, Loader } from './core/types';
+
+export type { AltRef, ModFile } from './core/types';
 
 export interface MetaFile {
   generatedAt: string;
   latestRelease: string;
   latestSnapshot: string;
-  /** window of drops shown as columns, newest first */
+  /** window of drops shown as default columns, newest first */
   drops: Drop[];
+  /** every targetable version that at least one tracked mod declares, newest first */
+  versions: GameVersion[];
+  /** older releases most mods target, per loader (e.g. 1.20.1, 1.21.1): suggested extra columns */
+  popularLegacy: Record<Loader, string[]>;
   loaders: Loader[];
+  /** precomputed mods per loader */
   tracked: Record<Loader, number>;
-}
-
-export interface AltRef {
-  slug: string;
-  curated: boolean;
-  note?: string;
+  /** mods with at least this many downloads are precomputed; others are looked up live */
+  minDownloads: number;
 }
 
 export interface MatrixMod {
@@ -24,19 +34,8 @@ export interface MatrixMod {
   icon: string | null;
   downloads: number;
   env: Env;
-  description: string;
-  categories: string[];
-  updated: string;
-  /** in the top N for this loader (vs. pulled in from the other loader's list) */
-  top: boolean;
   /** keyed by drop id */
   cells: Record<string, Cell>;
-  /** lag in days per released drop; null = no release build */
-  history: Record<string, number | null>;
-  /** required dependency project ids */
-  deps: string[];
-  /** alternatives per not-ready drop */
-  alts: Record<string, AltRef[]>;
 }
 
 export interface MatrixFile {
@@ -44,6 +43,13 @@ export interface MatrixFile {
   generatedAt: string;
   drops: string[];
   mods: MatrixMod[];
+}
+
+export interface VersionShard {
+  loader: Loader;
+  version: string;
+  /** project id -> best build type */
+  mods: Record<string, 'r' | 'b' | 'a'>;
 }
 
 export interface StatsFile {
@@ -62,24 +68,17 @@ export interface StatsFile {
   }[];
 }
 
-export interface ProjectFile {
-  id: string;
-  slug: string;
-  title: string;
-  description: string;
-  icon: string | null;
-  downloads: number;
-  env: Env;
-  categories: string[];
-  updated: string;
-  loaders: Partial<Record<Loader, Pick<MatrixMod, 'cells' | 'history' | 'alts' | 'deps'>>>;
-}
-
 export interface FeedEvent {
+  /** ISO date (day resolution) of the first release build */
   at: string;
   slug: string;
   title: string;
   loader: Loader;
   drop: string;
   top: boolean;
+}
+
+export interface PageRef {
+  id: string;
+  slug: string;
 }

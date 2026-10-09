@@ -140,7 +140,7 @@ input, select, textarea {
 .s-prerelease { color: var(--s-pre); background: var(--s-pre-bg); }
 .s-snapshot { color: var(--s-snap); background: var(--s-snap-bg); }
 .s-not_yet { color: var(--s-not); background: var(--s-not-bg); }
-.s-not_applicable, .s-dropped, .s-unknown { color: var(--s-na); background: var(--s-na-bg); }
+.s-not_applicable, .s-no_build, .s-dropped, .s-unknown { color: var(--s-na); background: var(--s-na-bg); }
 
 .bar { height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; display: flex; }
 .bar > span { display: block; height: 100%; }

@@ -184,6 +184,16 @@ No consent banner needed. Revisit ad networks at ~20–30k page views/month. Ana
 
 Metrics (all cookie-free): Cloudflare page views + referrers, `/go/` clicks, badge requests, Search Console impressions. Starting goal for the 26.4 cycle: 5k+ visits in release week, 10+ authors using badges.
 
+### Update (9 Oct 2026, later): coverage, Forge, exact versions, hosting
+
+- **Hosting**: one Cloudflare Worker with static assets serves the whole site plus `/data/*` (R2), `/go/*` and the cron. No Pages project (wrangler now steers Pages projects to Workers anyway). Live at https://mcmodsready.com.
+- **Loaders**: Fabric, NeoForge **and Forge** (needed for older-version users: 1.20.1 is mostly Forge).
+- **Coverage**: every mod with **10k+ downloads** precomputed (15,771 mods: Fabric 11,157 / NeoForge 8,622 / Forge 10,005, with overlap). Everything else is looked up **live in the browser** from Modrinth using the same core code, so mixed lists are seamless. Live lookups come from users' own connections, so they don't share the Worker's IP rate limits.
+- **Exact versions**: lists and grid columns can target a drop, any exact release (incl. 1.20.1, 1.21.1), or any snapshot/pre-release/RC with data. New status **"No build"** for older versions (instead of "Not yet").
+- **Data model**: per-mod support map (game version -> best build type + first release day), per-version shards for grid columns. Incremental pipeline keyed on Modrinth's modified date (~1h cold, minutes warm); only changed files are uploaded to R2 (R2 bills per write).
+- **Alternatives**: added declared-incompatibility ("rivals") signal and an inverted-index neighbour search that scales to ~15k mods. Next: semantic embeddings, port/fork detection, user feedback, eval set.
+- **Pre-rendered pages**: top 5,000 mods (Workers static asset limit ~20k files); other `/mod/<slug>` URLs fall through the 404 page to the live `/m` page.
+
 ### Backlog (next)
 
 Embeddable "Ready for 26.x" badges (Worker SVG); `.mrpack` import and browser-side jar hashing via Worker proxy; social preview images per drop; Lighthouse CI; e2e test in CI; PWA; adoption-report page.

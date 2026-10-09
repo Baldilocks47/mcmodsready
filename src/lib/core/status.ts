@@ -1,4 +1,4 @@
-import type { Cell, Drop, Env, Loader, ModProject, ModVersion } from './types';
+import type { Cell, Drop, Env, GameVersion, LoaderSupport, ModProject } from './types';
 
 const DAY = 86_400_000;
 
@@ -7,21 +7,22 @@ export const DROPPED_AFTER_DAYS = 365;
 
 /** Normalise Modrinth's environment info into one value. Prefers the newer `environment` field. */
 export function envOf(p: Pick<ModProject, 'client_side' | 'server_side' | 'environment'>): Env {
-  const e = p.environment?.[0];
-  switch (e) {
-    case 'client_only':
-    case 'client_only_server_optional':
-      return 'client';
-    case 'server_only':
-    case 'server_only_client_optional':
-    case 'dedicated_server_only':
-      return 'server';
-    case 'client_and_server':
-      return 'both';
-    case 'client_or_server':
-    case 'client_or_server_prefers_both':
-      return 'either';
+  // A project can list several values (its versions differ, e.g. Create: client_and_server +
+  // server_only_client_optional). Take the union of the sides any of them require.
+  const values = p.environment ?? [];
+  let client = false;
+  let server = false;
+  let either = false;
+  for (const e of values) {
+    if (e === 'client_and_server') client = server = true;
+    else if (e === 'client_only' || e === 'client_only_server_optional') client = true;
+    else if (e === 'server_only' || e === 'server_only_client_optional' || e === 'dedicated_server_only') server = true;
+    else if (e === 'client_or_server' || e === 'client_or_server_prefers_both') either = true;
   }
+  if (client && server) return 'both';
+  if (client) return 'client';
+  if (server) return 'server';
+  if (either) return 'either';
   const c = p.client_side;
   const s = p.server_side;
   if (c === 'unknown' || s === 'unknown' || !c || !s) return 'unknown';
@@ -34,53 +35,67 @@ export function envOf(p: Pick<ModProject, 'client_side' | 'server_side' | 'envir
   return 'unknown';
 }
 
-/** Compute one matrix cell for (project, loader, drop). */
-export function cellFor(
-  project: Pick<ModProject, 'loaders' | 'updated'>,
-  versions: ModVersion[],
-  loader: Loader,
-  drop: Drop,
-  latestDrops: Drop[],
-  now = Date.now(),
-): Cell {
-  if (!project.loaders.includes(loader)) return { status: 'not_applicable' };
-  const forLoader = versions.filter((v) => v.loaders.includes(loader));
-  if (forLoader.length === 0) return { status: 'not_applicable' };
+export interface StatusContext {
+  /** the two newest released drops: a mod on neither, idle for a year, is "dropped" */
+  latestDrops: Drop[];
+  /** newest released drop id: targets in it (or later) are "current" */
+  currentDrop: string;
+  /** mod's last update (ISO) */
+  updated: string;
+  now?: number;
+}
 
+function idleAndGone(s: LoaderSupport, ctx: StatusContext): boolean {
+  const idle = (ctx.now ?? Date.now()) - Date.parse(ctx.updated) > DROPPED_AFTER_DAYS * DAY;
+  const onRecent = ctx.latestDrops.some((d) => d.patches.some((p) => s.v[p]));
+  return idle && !onRecent;
+}
+
+/** Status for a drop (any patch counts), e.g. "26.3" covers 26.3, 26.3.1... */
+export function dropCell(s: LoaderSupport | undefined, drop: Drop, ctx: StatusContext): Cell {
+  if (!s) return { status: 'not_applicable' };
   if (drop.upcoming) {
-    const tagged = forLoader.filter((v) => v.game_versions.some((g) => drop.previews.includes(g)));
-    if (tagged.length) return { status: 'snapshot', patches: coverage(tagged, drop.previews) };
+    const patches = drop.previews.filter((p) => s.v[p]);
+    if (patches.length) return { status: 'snapshot', patches };
   } else {
-    const tagged = forLoader.filter((v) => v.game_versions.some((g) => drop.patches.includes(g)));
-    const releases = tagged.filter((v) => v.version_type === 'release');
-    if (releases.length) {
-      return {
-        status: 'ready',
-        patches: coverage(releases, drop.patches),
-        lagDays: lagDays(releases, drop),
-      };
+    const tagged = drop.patches.filter((p) => s.v[p]);
+    const released = tagged.filter((p) => s.v[p][0] === 'r');
+    if (released.length) {
+      const first = Math.min(...released.map((p) => s.v[p][1] ?? Infinity));
+      return { status: 'ready', patches: released, lagDays: lag(first, drop.releasedAt) };
     }
-    if (tagged.length) return { status: 'prerelease', patches: coverage(tagged, drop.patches) };
+    if (tagged.length) return { status: 'prerelease', patches: tagged };
+    // past drops: the moment has gone, "not yet" would imply it's coming
+    if (compareDropIds(drop.id, ctx.currentDrop) < 0) return { status: 'no_build' };
   }
-
-  const idle = now - Date.parse(project.updated) > DROPPED_AFTER_DAYS * DAY;
-  const onRecent = forLoader.some((v) =>
-    v.game_versions.some((g) => latestDrops.some((d) => d.patches.includes(g))),
-  );
-  if (idle && !onRecent) return { status: 'dropped' };
+  if (idleAndGone(s, ctx)) return { status: 'dropped' };
   return { status: 'not_yet' };
 }
 
-function coverage(versions: ModVersion[], ids: string[]): string[] {
-  const set = new Set(versions.flatMap((v) => v.game_versions));
-  return ids.filter((id) => set.has(id));
+/** Status for one exact game version, e.g. 1.20.1 or 26.4-snapshot-2. */
+export function versionCell(s: LoaderSupport | undefined, gv: GameVersion, ctx: StatusContext): Cell {
+  if (!s) return { status: 'not_applicable' };
+  const e = s.v[gv.id];
+  if (e) {
+    if (gv.type === 'snapshot') return { status: 'snapshot', patches: [gv.id] };
+    return { status: e[0] === 'r' ? 'ready' : 'prerelease', patches: [gv.id] };
+  }
+  const current = gv.drop != null && compareDropIds(gv.drop, ctx.currentDrop) >= 0;
+  if (!current) return { status: 'no_build' };
+  if (idleAndGone(s, ctx)) return { status: 'dropped' };
+  return { status: 'not_yet' };
 }
 
-/** Days from the drop's first release to the first release build. Builds published early count as 0. */
-export function lagDays(releases: ModVersion[], drop: Drop): number | undefined {
-  if (!drop.releasedAt) return undefined;
-  const first = Math.min(...releases.map((v) => Date.parse(v.date_published)));
-  return Math.max(0, Math.floor((first - Date.parse(drop.releasedAt)) / DAY));
+function compareDropIds(a: string, b: string): number {
+  const [a1, a2] = a.split('.').map(Number);
+  const [b1, b2] = b.split('.').map(Number);
+  return a1 - b1 || a2 - b2;
+}
+
+/** Days from release to first release build; builds published early count as 0. */
+export function lag(firstReleaseDay: number, releasedAt: string | null): number | undefined {
+  if (!releasedAt || !Number.isFinite(firstReleaseDay)) return undefined;
+  return Math.max(0, firstReleaseDay - Math.floor(Date.parse(releasedAt) / DAY));
 }
 
 export function median(xs: number[]): number | null {
