@@ -1,10 +1,11 @@
-// Cloudflare Worker: the reliable clock and the dynamic edge of an otherwise static site.
+// Cloudflare Worker: serves the static site (dist/ via the ASSETS binding) plus the dynamic bits.
 //  - cron (every 10 min): watch the Mojang manifest; trigger the GitHub data pipeline on a new
 //    version, and every 30 min during the 48h after a release ("release-day mode").
 //  - GET /data/*: serve pipeline output from R2 with short cache times.
 //  - GET /go/<partner>: cookie-free affiliate redirect with an anonymous click count.
 
 export interface Env {
+  ASSETS: Fetcher;
   DATA: R2Bucket;
   STATE: KVNamespace;
   CLICKS?: AnalyticsEngineDataset;
@@ -30,9 +31,9 @@ interface State {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/data/')) return serveData(url, env);
+    if (url.pathname.startsWith('/data/')) return serveData(req, url, env);
     if (url.pathname.startsWith('/go/')) return redirect(url, env, ctx);
-    return new Response('Not found', { status: 404 });
+    return env.ASSETS.fetch(req);
   },
 
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -40,11 +41,12 @@ export default {
   },
 };
 
-async function serveData(url: URL, env: Env): Promise<Response> {
+async function serveData(req: Request, url: URL, env: Env): Promise<Response> {
   const key = url.pathname.slice(1); // "data/meta.json"
   if (!/^data\/[a-z0-9._/-]+\.json$/i.test(key) || key.includes('..')) return new Response('Bad path', { status: 400 });
   const obj = await env.DATA.get(key);
-  if (!obj) return new Response('Not found', { status: 404 });
+  // Before the first pipeline publish, fall back to any data bundled with the site.
+  if (!obj) return env.ASSETS.fetch(req);
   const headers = new Headers({
     'content-type': 'application/json; charset=utf-8',
     // meta/stats/feed change often on release day; project files less so

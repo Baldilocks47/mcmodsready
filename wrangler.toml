@@ -1,0 +1,41 @@
+# One Worker serves the whole site: static files from dist/, plus /data/* (from R2),
+# /go/* (affiliate redirects) and a cron that watches the Mojang manifest.
+name = "mcmodsready"
+main = "worker/src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+routes = [
+  { pattern = "mcmodsready.com", custom_domain = true },
+]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+run_worker_first = ["/data/*", "/go/*"]
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "mcmodsready-data"
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "86a33fff6b884035973277ebf1949d28"
+
+# Enable Analytics Engine in the dashboard, then uncomment for affiliate click counts:
+# [[analytics_engine_datasets]]
+# binding = "CLICKS"
+# dataset = "mcmodsready_clicks"
+
+[vars]
+GITHUB_REPO = "Baldilocks47/mcmodsready"
+# Partner name -> affiliate URL. Example: {"host":"https://partner.example/?ref=abc"}
+AFFILIATES = "{}"
+
+# Secret (set once with `npx wrangler secret put GITHUB_TOKEN`):
+#   GITHUB_TOKEN  fine-grained PAT, this repo only, "Contents: read and write"
