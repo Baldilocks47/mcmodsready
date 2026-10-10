@@ -22,7 +22,7 @@
   .track { fill: none; stroke: var(--surface-2); stroke-width: 10; }
   .val { fill: none; stroke: var(--s-not); stroke-width: 10; stroke-linecap: butt; }
   .ok .val { stroke: var(--s-ready); }
-  text { font: 600 15px var(--pixel); fill: var(--text); }
+  text { font: 400 16px var(--pixel); fill: var(--text); }
   figcaption { display: flex; flex-direction: column; }
   .ok figcaption .small { color: var(--s-ready); }
   figcaption .small { color: var(--s-not); }

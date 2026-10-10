@@ -104,9 +104,10 @@
 
 <style>
   .hero { margin-bottom: 24px; }
-  h1 { font-size: clamp(1.6rem, 4vw, 2.6rem); margin-top: 16px; }
+  h1 { font-size: 40px; margin-top: 16px; }
+  @media (max-width: 640px) { h1 { font-size: 32px; } }
   .big { font-size: 1.25rem; }
-  .big strong { font-family: var(--pixel); font-size: 1.9rem; color: var(--accent); }
+  .big strong { font-family: var(--pixel); font-weight: 400; font-size: 40px; color: var(--accent); text-shadow: var(--pixel-shadow); }
   .bar { height: 24px; margin: 12px 0; }
   .grid { margin-bottom: 16px; }
   .feed { list-style: none; padding: 0; margin: 0; }

@@ -33,7 +33,9 @@
 
   --radius: 3px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --pixel: 'Pixelify Sans', var(--font);
+  --pixel: 'Tiny5', var(--font);
+  /* the game-style hard drop shadow under pixel text */
+  --pixel-shadow: 2px 2px 0 rgb(0 0 0 / 0.18);
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   color-scheme: light;
 }
@@ -57,6 +59,7 @@
     --dirt: #6b4b33;
     --dirt-dark: #523826;
     --noise: rgb(255 255 255 / 0.025);
+    --pixel-shadow: 2px 2px 0 rgb(0 0 0 / 0.6);
     --s-ready: #6fe08f;
     --s-ready-bg: #173823;
     --s-pre: #f5c84c;
@@ -87,6 +90,7 @@
   --dirt: #6b4b33;
   --dirt-dark: #523826;
   --noise: rgb(255 255 255 / 0.025);
+  --pixel-shadow: 2px 2px 0 rgb(0 0 0 / 0.6);
   --s-ready: #6fe08f;
   --s-ready-bg: #173823;
   --s-pre: #f5c84c;
@@ -101,7 +105,7 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; font-synthesis: none; } /* no fake bold: it smears pixel fonts */
 body {
   margin: 0;
   color: var(--text);
@@ -115,8 +119,10 @@ body {
 }
 a { color: var(--accent); text-underline-offset: 2px; }
 img { max-width: 100%; }
-h1, h2, h3 { font-family: var(--pixel); font-weight: 600; line-height: 1.15; margin: 0 0 0.5rem; letter-spacing: 0.01em; }
-h2 { font-size: 1.3rem; }
+h1, h2, h3 { font-family: var(--pixel); font-weight: 400; line-height: 1.1; margin: 0 0 0.5rem; letter-spacing: 0.02em; text-shadow: var(--pixel-shadow); }
+h2 { font-size: 24px; }
+h3 { font-size: 16px; }
+h1 { font-size: 32px; }
 .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
 .muted { color: var(--muted); }
 .small { font-size: 0.875rem; }
@@ -155,7 +161,8 @@ button.primary, .btn.primary {
   background: var(--grass);
   color: #fff;
   font-family: var(--pixel);
-  font-weight: 600;
+  font-weight: 400;
+  font-size: 16px;
   text-shadow: 0 2px 0 rgb(0 0 0 / 0.35);
   box-shadow: inset 2px 2px 0 rgb(255 255 255 / 0.3), inset -2px -3px 0 var(--grass-dark);
 }
@@ -172,7 +179,7 @@ input, select, textarea {
   box-shadow: inset 2px 2px 0 var(--bevel-lo);
 }
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-.tabs button { font-family: var(--pixel); font-weight: 600; }
+.tabs button { font-family: var(--pixel); font-weight: 400; font-size: 16px; }
 .tabs button[aria-pressed='true'] {
   background: var(--grass);
   color: #fff;

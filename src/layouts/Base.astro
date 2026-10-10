@@ -1,5 +1,5 @@
 ---
-import '@fontsource/pixelify-sans/latin-600.css';
+import '@fontsource/tiny5/latin-400.css';
 import '../styles/global.css';
 import logo from '../components/logo-block.svg?raw';
 import grassStrip from '../components/grass-strip.svg?raw';
@@ -84,13 +84,13 @@ const grassUrl = `url("data:image/svg+xml,${encodeURIComponent(grassStrip.trim()
       /* pixel grass edge hanging over a strip of dirt */
       .site-header::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; background: var(--grass-strip) repeat-x; background-size: 32px 12px; image-rendering: pixelated; border-bottom: 2px solid #0b0c0e; }
       .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; flex-wrap: wrap; }
-      .brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--pixel); font-weight: 600; font-size: 1.45rem; text-decoration: none; color: #f1efe8; text-shadow: 0 2px 0 #000; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--pixel); font-weight: 400; font-size: 32px; text-decoration: none; color: #f1efe8; text-shadow: 2px 2px 0 #000; }
       .brand b { color: #8fd655; font-weight: 600; }
       .brand .m { color: #d8d4c8; }
       .logo { display: inline-flex; width: 30px; height: 30px; filter: drop-shadow(0 2px 0 #000); }
       .logo :global(svg) { width: 100%; height: 100%; }
       nav { display: flex; gap: 16px; }
-      nav a { color: #f1efe8; text-decoration: none; font-family: var(--pixel); font-weight: 600; text-shadow: 0 2px 0 #000; }
+      nav a { color: #f1efe8; text-decoration: none; font-family: var(--pixel); font-weight: 400; font-size: 24px; text-shadow: 2px 2px 0 #000; }
       nav a:hover { color: #8fd655; }
       .site-footer { border-top: 2px solid var(--outline); margin-top: 48px; padding: 16px 0 32px; background: var(--surface-2); }
       :global(.stale) { background: var(--s-pre-bg); color: var(--s-pre); padding: 8px 12px; border: 2px solid currentColor; border-radius: 3px; margin-bottom: 16px; }

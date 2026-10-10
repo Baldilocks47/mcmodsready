@@ -91,7 +91,8 @@
 <style>
   .head { display: flex; gap: 16px; align-items: flex-start; }
   .icon { width: 64px; height: 64px; border-radius: 12px; flex: none; }
-  h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); }
+  h1 { font-size: 32px; }
+  @media (max-width: 640px) { h1 { font-size: 24px; } }
   .answer { font-size: 1.15rem; }
   .grid { margin: 16px 0; }
   table { width: 100%; border-collapse: collapse; }
