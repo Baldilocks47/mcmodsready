@@ -14,5 +14,6 @@ const s = Object.fromEntries(m.loaders.map((l) => [l, stats(l)])) as Record<Load
   title={`Are my mods ready for Minecraft ${latest.id}? Fabric, NeoForge & Forge mod tracker`}
   description={`Live readiness of the top Fabric, NeoForge and Forge mods for Minecraft ${latest.id}. Check your own mod list for server and client, and find alternatives for mods that haven't updated.`}
 >
-  <Hero client:load meta={m} stats={s} feed={feed().events} />
+  {/* the landing page never needs the full version list; keep the HTML small */}
+  <Hero client:load meta={{ ...m, versions: [] }} stats={s} feed={feed().events} />
 </Base>

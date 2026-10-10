@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /m
+Disallow: /go/
+
+Sitemap: https://mcmodsready.com/sitemap-index.xml
