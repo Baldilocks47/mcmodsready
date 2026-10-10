@@ -194,6 +194,31 @@ Metrics (all cookie-free): Cloudflare page views + referrers, `/go/` clicks, bad
 - **Alternatives**: added declared-incompatibility ("rivals") signal and an inverted-index neighbour search that scales to ~15k mods. Next: semantic embeddings, port/fork detection, user feedback, eval set.
 - **Pre-rendered pages**: top 5,000 mods (Workers static asset limit ~20k files); other `/mod/<slug>` URLs fall through the 404 page to the live `/m` page.
 
-### Backlog (next)
+### Status at 10 Oct 2026
 
-Embeddable "Ready for 26.x" badges (Worker SVG); `.mrpack` import and browser-side jar hashing via Worker proxy; social preview images per drop; Lighthouse CI; e2e test in CI; PWA; adoption-report page.
+Live at https://mcmodsready.com with full automation: the Worker cron (every 10 min) triggers the GitHub `data` workflow, which refreshes ~15.8k mods incrementally, publishes changed files to R2 and (nightly / on a new version) rebuilds and deploys. Sitemap (5,004 URLs) and robots.txt live. Cloudflare Web Analytics (cookieless) enabled.
+
+### Close-out checklist (finish before the next phase)
+
+- [ ] Search Console: Domain property for mcmodsready.com, sitemap `https://mcmodsready.com/sitemap-index.xml` submitted
+- [ ] addy.io: domain verified (TXT), MX/SPF/DKIM/DMARC added, Cloudflare Email Routing disabled; `hello@` and `affiliates@` created
+- [ ] Git history: AI co-author trailers removed and author email set to hello@mcmodsready.com (`.git/rewrite-history.sh`, run by the owner; force-pushes main)
+- [ ] Add hello@mcmodsready.com to the GitHub account so commits link to it
+- [ ] Apex Hosting affiliate application from affiliates@; on approval, set `AFFILIATES` in `wrangler.toml` and `PUBLIC_HOST_CTA`
+- [x] Cloudflare Web Analytics
+- [x] Worker cron attached, `GITHUB_TOKEN` Worker secret set, `CLOUDFLARE_API_TOKEN` upgraded to Workers edit
+
+### Next phase (agreed order, toward the mid-November soft launch)
+
+1. **"Ready for 26.x" badges** for mod authors (Worker-rendered SVG): backlinks are the main growth lever.
+2. **Social preview (OG) images** per drop and per mod page, so shared links look good on Reddit/Discord.
+3. **26.3 adoption report page**: day-1/7/30 readiness by loader, plus the Forge finding (15 of the top 100 Forge mods ready for 26.3 vs 75 Fabric / 68 NeoForge). Doubles as the soft-launch post.
+4. **Import**: `.mrpack` upload and dropping a mods folder's jars (SHA-1 hashed in the browser, looked up by hash; files never uploaded).
+5. **Alternatives v2**: semantic embeddings over full project bodies, port/fork detection, then a small eval set in CI.
+6. **Quality gates**: e2e test (pin list → share → reload) and Lighthouse CI.
+
+Then rollout stage 3 (badge outreach, hosting partner pitch) and 26.4 release-day prep.
+
+### Backlog (later)
+
+PWA/offline; notifications tier (waitlist first); self-served sponsor slot; ad networks once traffic justifies a consent banner.
