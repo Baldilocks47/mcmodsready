@@ -201,11 +201,12 @@ Live at https://mcmodsready.com with full automation: the Worker cron (every 10 
 ### Close-out checklist (finish before the next phase)
 
 - [ ] Search Console: Domain property for mcmodsready.com, sitemap `https://mcmodsready.com/sitemap-index.xml` submitted
-- [ ] addy.io: domain verified (TXT), MX/SPF/DKIM/DMARC added, Cloudflare Email Routing disabled; `hello@` and `affiliates@` created
-- [ ] Git history: AI co-author trailers removed and author email set to hello@mcmodsready.com (`.git/rewrite-history.sh`, run by the owner; force-pushes main)
+- [ ] Email: Cloudflare Email Routing (free, receive-only) for `hello@` and `affiliates@`. addy.io Lite slot kept for the other project; upgrade to the multi-domain tier only when this site needs to send (sponsor outreach)
+- [x] Git history: AI co-author trailers removed and author email set to hello@mcmodsready.com (`.git/rewrite-history.sh`, run by the owner; force-pushes main)
 - [ ] Add hello@mcmodsready.com to the GitHub account so commits link to it
 - [ ] Apex Hosting affiliate application from affiliates@; on approval, set `AFFILIATES` in `wrangler.toml` and `PUBLIC_HOST_CTA`
 - [x] Cloudflare Web Analytics
+- [x] Minecraft-flavoured restyle (original pixel look, no Mojang assets)
 - [x] Worker cron attached, `GITHUB_TOKEN` Worker secret set, `CLOUDFLARE_API_TOKEN` upgraded to Workers edit
 
 ### Next phase (agreed order, toward the mid-November soft launch)
