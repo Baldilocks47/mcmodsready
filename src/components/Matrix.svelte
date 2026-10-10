@@ -201,10 +201,10 @@
   .controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; }
   .controls input[type='search'] { flex: 1 1 200px; }
   .check { display: inline-flex; gap: 6px; align-items: center; }
-  .scroller { max-height: 75vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .scroller { max-height: 75vh; overflow: auto; border: 2px solid var(--outline); border-radius: var(--radius); background: var(--surface); box-shadow: inset 2px 2px 0 var(--bevel-hi); }
   .matrix { border-collapse: separate; border-spacing: 0; width: 100%; }
   .matrix th, .matrix td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; }
-  .matrix thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; font-size: 0.875rem; white-space: nowrap; }
+  .matrix thead th { position: sticky; top: 0; background: var(--surface-2); z-index: 2; font-family: var(--pixel); font-weight: 600; white-space: nowrap; border-bottom: 2px solid var(--outline); }
   .mod-col { position: sticky; left: 0; background: var(--surface); z-index: 1; font-weight: normal; min-width: 220px; }
   thead .mod-col { z-index: 3; }
   .focus { background: var(--surface-2) !important; }

@@ -76,7 +76,7 @@
         {#if alts.length}
           <p class="small">
             {alts.some((a) => a.curated) ? 'Known replacements' : `Similar mods ready for ${latest.id}`}:
-            {#each alts as a, i}{i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{titles[a.slug] ?? a.slug}</a>{/each}
+            {#each alts as a, i}{i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? titles[a.slug] ?? a.slug}</a>{/each}
             {#if !alts.some((a) => a.curated)}<span class="muted"> (similar purpose; check features before switching)</span>{/if}
           </p>
         {/if}

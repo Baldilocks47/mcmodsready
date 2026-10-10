@@ -19,10 +19,10 @@
 
 <style>
   .ring { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
-  .track { fill: none; stroke: var(--surface-2); stroke-width: 9; }
-  .val { fill: none; stroke: var(--s-not); stroke-width: 9; stroke-linecap: round; }
+  .track { fill: none; stroke: var(--surface-2); stroke-width: 10; }
+  .val { fill: none; stroke: var(--s-not); stroke-width: 10; stroke-linecap: butt; }
   .ok .val { stroke: var(--s-ready); }
-  text { font: 700 15px var(--font); fill: var(--text); }
+  text { font: 600 15px var(--pixel); fill: var(--text); }
   figcaption { display: flex; flex-direction: column; }
   .ok figcaption .small { color: var(--s-ready); }
   figcaption .small { color: var(--s-not); }

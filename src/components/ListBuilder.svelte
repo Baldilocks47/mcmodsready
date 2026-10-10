@@ -291,7 +291,7 @@
                     <div class="small alts">
                       {alts.some((a) => a.curated) ? 'Known replacements:' : 'Similar mods that are ready:'}
                       {#each alts as a, i}
-                        {i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.slug}</a>
+                        {i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? bySlug.get(a.slug)?.title ?? a.slug}</a>
                       {/each}
                       {#if !alts.some((a) => a.curated)}<span class="muted">(similar purpose; check features before switching)</span>{/if}
                     </div>

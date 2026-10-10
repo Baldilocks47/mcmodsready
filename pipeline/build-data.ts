@@ -171,7 +171,7 @@ async function main() {
         const alts = alternativesFor(m, candidates, index, overrides.get(m.slug), 3, now, rivals);
         if (alts.length) {
           m.alts ??= {};
-          (m.alts[loader] ??= {})[d.id] = alts.map((a) => ({ slug: a.slug, curated: a.curated, ...(a.note ? { note: a.note } : {}) }));
+          (m.alts[loader] ??= {})[d.id] = alts.map((a) => ({ slug: a.slug, title: a.title, curated: a.curated, ...(a.note ? { note: a.note } : {}) }));
         }
       }
     }

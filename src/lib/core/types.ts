@@ -87,6 +87,7 @@ export interface LoaderSupport {
 
 export interface AltRef {
   slug: string;
+  title?: string;
   curated: boolean;
   note?: string;
 }

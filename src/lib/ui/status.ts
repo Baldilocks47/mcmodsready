@@ -43,5 +43,11 @@ export function timeAgo(iso: string, now = Date.now()): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
+/** For day-resolution dates (e.g. first release day): today / yesterday / N days ago. */
+export function daysAgo(isoDay: string, now = Date.now()): string {
+  const d = Math.floor(now / 86_400_000) - Math.floor(Date.parse(isoDay) / 86_400_000);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
+}
+
 /** Where the client fetches data shards from. In production this is the R2-backed data host. */
 export const DATA_BASE = (import.meta.env.PUBLIC_DATA_BASE as string | undefined) ?? '/data';

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import type { Loader } from '../lib/core/types';
   import type { FeedEvent, MetaFile, StatsFile } from '../lib/data-schema';
-  import { DATA_BASE, LOADER_LABEL, timeAgo } from '../lib/ui/status';
+  import { DATA_BASE, LOADER_LABEL, daysAgo } from '../lib/ui/status';
 
   let {
     meta: initialMeta,
@@ -75,7 +75,7 @@
     {#if recent.length}
       <ul class="feed">
         {#each recent as e}
-          <li><a href="/mod/{e.slug}">{e.title}</a> <span class="muted small">{timeAgo(e.at)}</span></li>
+          <li><a href="/mod/{e.slug}">{e.title}</a> <span class="muted small">{daysAgo(e.at)}</span></li>
         {/each}
       </ul>
     {:else}
@@ -106,7 +106,8 @@
   .hero { margin-bottom: 24px; }
   h1 { font-size: clamp(1.6rem, 4vw, 2.6rem); margin-top: 16px; }
   .big { font-size: 1.25rem; }
-  .bar { height: 18px; margin: 12px 0; }
+  .big strong { font-family: var(--pixel); font-size: 1.9rem; color: var(--accent); }
+  .bar { height: 24px; margin: 12px 0; }
   .grid { margin-bottom: 16px; }
   .feed { list-style: none; padding: 0; margin: 0; }
   .feed li { padding: 4px 0; border-bottom: 1px solid var(--border); }
