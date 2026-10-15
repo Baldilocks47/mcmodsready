@@ -311,3 +311,24 @@ describe('curated "no replacement"', () => {
     expect(alternativesFor(c[0], c, idx, [], 3, NOW)).toEqual([]);
   });
 });
+
+describe('badges', async () => {
+  const { badgeSvg, bestStatus, textWidth, BADGE_STATUS } = await import('../src/lib/core/badge');
+  it('picks the best status across loaders', () => {
+    expect(bestStatus(['not_yet', 'ready', 'prerelease'])).toBe('ready');
+    expect(bestStatus(['no_build', 'prerelease'])).toBe('prerelease');
+    expect(bestStatus([])).toBe('unknown');
+  });
+  it('sizes text roughly like Verdana 11px', () => {
+    expect(textWidth('ready')).toBeGreaterThan(25);
+    expect(textWidth('ready')).toBeLessThan(40);
+    expect(textWidth('MC 26.3 · NeoForge')).toBeGreaterThan(textWidth('MC 26.3'));
+  });
+  it('renders accessible, escaped SVG', () => {
+    const svg = badgeSvg({ label: 'MC 26.3', message: BADGE_STATUS.ready.text, color: BADGE_STATUS.ready.color, title: 'A <b> & "c"' });
+    expect(svg).toContain('role="img"');
+    expect(svg).toContain('<title>A &lt;b&gt; &amp; &quot;c&quot;</title>');
+    expect(svg).toContain('>ready<');
+    expect(svg).not.toContain('<b>');
+  });
+});

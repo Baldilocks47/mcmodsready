@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import BadgeBuilder from '../components/BadgeBuilder.svelte';
+import { meta } from '../lib/build-data';
+const m = meta();
+const latest = m.drops.find((d) => !d.upcoming)!;
+---
+
+<Base
+  title="Readiness badges for Minecraft mod pages"
+  description={`Free, auto-updating "ready for Minecraft ${latest.id}" badges for your mod's Modrinth, CurseForge or GitHub page. Works for any mod on Modrinth.`}
+>
+  <h1>Badges for mod authors</h1>
+  <p>
+    Tired of "update when?" comments? Put a badge on your mod page that shows whether your mod is ready for the latest
+    Minecraft version. It updates by itself from your Modrinth version tags, works for any mod on Modrinth, and is free.
+  </p>
+  <p>
+    <img src={`https://mcmodsready.com/badge/sodium.svg`} alt="Example: Sodium readiness badge" height="20" />
+    <img src={`https://mcmodsready.com/badge/jei.svg`} alt="Example: JEI readiness badge" height="20" />
+    <img src={`https://mcmodsready.com/badge/create.svg`} alt="Example: Create readiness badge" height="20" />
+  </p>
+  <BadgeBuilder client:only="svelte" drops={m.drops} loaders={m.loaders} />
+  <p class="small muted">
+    Status comes from the versions you tag on Modrinth. Badges are cached for up to an hour (sites like GitHub may cache
+    longer). No tracking: we only count how many times each mod's badge is loaded.
+  </p>
+</Base>

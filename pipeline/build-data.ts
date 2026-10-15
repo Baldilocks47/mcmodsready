@@ -245,7 +245,11 @@ async function main() {
   // 6. Per-mod files and the pre-rendered page list.
   const pageList: PageRef[] = mods.slice(0, PAGES).map((m) => ({ id: m.id, slug: m.slug }));
   const pageIds = new Set(pageList.map((p) => p.id));
-  for (const m of mods) await writeJson(`m/${m.id}.json`, { ...m, page: pageIds.has(m.id) } satisfies ModFile);
+  for (const m of mods) {
+    await writeJson(`m/${m.id}.json`, { ...m, page: pageIds.has(m.id) } satisfies ModFile);
+    // slug -> id lookup for badges (/badge/<slug>.svg)
+    await writeJson(`slug/${m.slug}.json`, { id: m.id });
+  }
   await writeJson('pages.json', pageList);
 
   feed.sort((a, b) => b.at.localeCompare(a.at) || Number(b.top) - Number(a.top));

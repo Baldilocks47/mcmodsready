@@ -3,6 +3,8 @@
 //    version, and every 30 min during the 48h after a release ("release-day mode").
 //  - GET /data/*: serve pipeline output from R2 with short cache times.
 //  - GET /go/<partner>: cookie-free affiliate redirect with an anonymous click count.
+//  - GET /badge/<mod>.svg: embeddable readiness badge for mod authors (see badge.ts).
+import { badge } from './badge';
 
 export interface Env {
   ASSETS: Fetcher;
@@ -33,6 +35,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/data/')) return serveData(req, url, env);
     if (url.pathname.startsWith('/go/')) return redirect(url, env, ctx);
+    if (url.pathname.startsWith('/badge/')) return badge(req, url, env, ctx);
     return env.ASSETS.fetch(req);
   },
 

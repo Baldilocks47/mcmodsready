@@ -85,6 +85,7 @@
   </div>
 
   <p><a class="btn primary" href="/list">Check your whole mod list →</a></p>
+  <p class="small">Made {mod.title}? <a href="/badges?mod={encodeURIComponent(mod.slug)}&title={encodeURIComponent(mod.title)}">Get a readiness badge for your mod page</a>.</p>
   <p class="small muted">{DECLARED_NOTE} Any version, including snapshots, can be checked in the <a href="/list">list checker</a>.</p>
 </article>
 
