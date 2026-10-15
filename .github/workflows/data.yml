@@ -122,3 +122,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+
+      # keep rendered social cards (.cache/og) so the next build only re-renders changed ones
+      - name: Save pipeline cache (with social cards)
+        if: always() && steps.decide.outputs.rebuild == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: pipeline-${{ github.run_id }}-og

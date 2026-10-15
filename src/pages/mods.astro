@@ -8,6 +8,7 @@ const latest = m.drops.find((d) => !d.upcoming)!;
 ---
 
 <Base
+  ogImage="/og/mods.png"
   title={`Mod readiness for Minecraft ${latest.id}: top Fabric, NeoForge & Forge mods`}
   description={`Which of the top Fabric, NeoForge and Forge mods have updated to Minecraft ${m.drops.map((d) => d.id).join(', ')}, plus any older version or snapshot. Updated automatically from Modrinth.`}
 >
