@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listReadiness, type ListItem } from '../lib/core/readiness';
+  import { listReadiness, type Group, type ListItem } from '../lib/core/readiness';
   import { decodeList, encodeList, migrateList, parsePasted, type ModList } from '../lib/core/share';
   import { altDrop, cellAt, defaultTarget, depsAt, isUpcoming, parseTarget } from '../lib/core/targets';
   import type { Drop, GameVersion, Loader, ModFile, Status } from '../lib/core/types';
@@ -192,12 +192,13 @@
     }
   }
   const sideLabel = (s: ('server' | 'client')[]) => (s.length === 2 ? 'server + client' : s[0]);
-  const blockerNames = (side?: 'server' | 'client') =>
-    result.blockers.filter((b) => !side || b.sides.includes(side)).map((b) => `${b.title} (${STATUS[b.status].label.toLowerCase()})`);
-  const RING_HELP = {
-    server: 'Mods your server must run: server-side mods plus anything needed on both sides. Ready means you can update the server to this version.',
-    client: 'Mods every player installs in their game: client-side mods plus anything needed on both sides. Ready means players can update.',
-    both: 'Your whole list, server and client together. Ready only when nothing is blocking anywhere.',
+  const describe = (b: { title: string; status: Status }) => `${b.title} (${STATUS[b.status].label.toLowerCase()})`;
+  const groupBlockers = (g: Group) => result.blockers.filter((b) => b.group === g).map(describe);
+  const sideBlockers = (side: 'server' | 'client') => result.blockers.filter((b) => b.sides.includes(side));
+  const RING_HELP: Record<Group, string> = {
+    server: 'Mods that only run on the server, such as world generation or admin tools. Players don’t install these.',
+    client: 'Mods that only players install, such as shaders, minimaps or performance mods. Your server doesn’t need them.',
+    both: 'Mods that must be on the server and in every player’s game (content mods, libraries like Fabric API). Includes mods marked optional on either side.',
   };
   const fmtDl = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 </script>
@@ -264,9 +265,24 @@
         </div>
       {:else}
         <div class="card rings">
-          <Ring label="Server" {...result.server} description={RING_HELP.server} blockers={blockerNames('server')} />
-          <Ring label="Client" {...result.client} description={RING_HELP.client} blockers={blockerNames('client')} />
-          <Ring label="Both" {...result.both} description={RING_HELP.both} blockers={blockerNames()} />
+          <Ring label="Server only" {...result.groups.server} description={RING_HELP.server} blockers={groupBlockers('server')} />
+          <Ring label="Client only" {...result.groups.client} description={RING_HELP.client} blockers={groupBlockers('client')} />
+          <Ring label="Both sides" {...result.groups.both} description={RING_HELP.both} blockers={groupBlockers('both')} />
+        </div>
+        <div class="card verdicts">
+          {#each [{ side: 'server' as const, who: 'Your server' }, { side: 'client' as const, who: 'Players' }] as v}
+            {@const r = result[v.side]}
+            {@const bl = sideBlockers(v.side)}
+            <p class:ok={r.ok}>
+              <span class="mark" aria-hidden="true">{r.ok ? '✓' : '✕'}</span>
+              <strong>{v.who} {r.ok ? 'can' : 'can’t yet'} update to {target.kind === 'drop' ? target.drop.id : target.version.id}.</strong>
+              {#if r.total === 0}
+                <span class="muted">No {v.side}-side mods in this list.</span>
+              {:else if !r.ok}
+                <span>Blocked by {bl.slice(0, 3).map((b) => b.title).join(', ')}{bl.length > 3 ? ` and ${bl.length - 3} more` : ''}.</span>
+              {/if}
+            </p>
+          {/each}
         </div>
         <p class="small muted">
           Checking against <strong>{target.label}</strong> on {LOADER_LABEL[list.loader]}. {DECLARED_NOTE}
@@ -349,6 +365,9 @@
   textarea { width: 100%; }
   .results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .rings { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 16px; }
+  .verdicts p { margin: 4px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+  .verdicts .mark { font-family: var(--pixel); color: var(--s-not); }
+  .verdicts .ok .mark { color: var(--s-ready); }
   .cta { border-color: var(--s-ready); }
   .cta p { margin: 4px 0; }
   ul { list-style: none; padding: 0; margin: 0; }

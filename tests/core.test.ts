@@ -147,7 +147,12 @@ describe('listReadiness', () => {
     const r = listReadiness([item('sodium', 'client', 'not_yet'), item('lithium', 'either', 'not_yet'), item('carpet', 'server', 'ready'), item('fabric-api', 'both', 'ready')]);
     expect(r.server).toEqual({ ready: 2, total: 3, ok: false });
     expect(r.client).toEqual({ ready: 1, total: 3, ok: false });
-    expect(r.both).toEqual({ ready: 2, total: 4, ok: false });
+    expect(r.all).toEqual({ ready: 2, total: 4, ok: false });
+    // groups: where each mod is installed (sodium = client-only, carpet = server-only, lithium + fabric-api = both)
+    expect(r.groups.client).toEqual({ ready: 0, total: 1, ok: false });
+    expect(r.groups.server).toEqual({ ready: 1, total: 1, ok: true });
+    expect(r.groups.both).toEqual({ ready: 1, total: 2, ok: false });
+    expect(r.blockers.map((b) => b.group)).toEqual(['client', 'both']);
     expect(r.blockers.map((b) => [b.slug, b.sides, b.optional])).toEqual([
       ['sodium', ['client'], false],
       ['lithium', ['server', 'client'], true],
@@ -160,12 +165,12 @@ describe('listReadiness', () => {
     expect(r.blockers[0].envUnknown).toBe(true);
   });
   it('can accept prerelease builds', () => {
-    expect(listReadiness([item('jei', 'both', 'prerelease')], { acceptPrerelease: true }).both.ok).toBe(true);
+    expect(listReadiness([item('jei', 'both', 'prerelease')], { acceptPrerelease: true }).all.ok).toBe(true);
   });
   it('20-mod list: everything ready means ready everywhere', () => {
     const items = Array.from({ length: 20 }, (_, i) => item(`m${i}`, (['client', 'server', 'both', 'either'] as const)[i % 4], 'ready'));
     const r = listReadiness(items);
-    expect(r.both.ok).toBe(true);
+    expect(r.all.ok).toBe(true);
     expect(r.server.total).toBe(15);
     expect(r.client.total).toBe(15);
   });

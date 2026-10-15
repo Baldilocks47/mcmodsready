@@ -16,6 +16,15 @@ export interface Blocker {
   envUnknown: boolean;
   /** Modrinth marks it optional on each side: it still blocks wherever you run it, but could be left off one side */
   optional: boolean;
+  /** which group the mod belongs to (where it is installed) */
+  group: Group;
+}
+
+/** Where a mod is installed: only on the server, only in players' games, or on both. */
+export type Group = 'server' | 'client' | 'both';
+
+export function groupFor(env: Env): Group {
+  return env === 'server' ? 'server' : env === 'client' ? 'client' : 'both';
 }
 
 export interface SideResult {
@@ -25,10 +34,14 @@ export interface SideResult {
 }
 
 export interface ListReadiness {
+  /** can the server update? server-only mods + mods needed on both sides */
   server: SideResult;
+  /** can players update? client-only mods + mods needed on both sides */
   client: SideResult;
   /** every mod in the list, whichever side it runs on */
-  both: SideResult;
+  all: SideResult;
+  /** readiness per group: server-only, client-only and both-sides mods */
+  groups: Record<Group, SideResult>;
   blockers: Blocker[];
 }
 
@@ -65,10 +78,20 @@ export function listReadiness(items: ListItem[], opts: ReadinessOptions = {}): L
   const server: SideResult = { ready: 0, total: 0, ok: true };
   const client: SideResult = { ready: 0, total: 0, ok: true };
   const blockers: Blocker[] = [];
+  const groups: Record<Group, SideResult> = {
+    server: { ready: 0, total: 0, ok: true },
+    client: { ready: 0, total: 0, ok: true },
+    both: { ready: 0, total: 0, ok: true },
+  };
 
   for (const item of items) {
     const sides = sidesFor(item.env);
     const ready = isReady(item.status, opts);
+    const group = groupFor(item.env);
+    const g = groups[group];
+    g.total++;
+    if (ready) g.ready++;
+    else g.ok = false;
     for (const side of sides) {
       const r = side === 'server' ? server : client;
       r.total++;
@@ -83,11 +106,12 @@ export function listReadiness(items: ListItem[], opts: ReadinessOptions = {}): L
         sides,
         envUnknown: item.env === 'unknown',
         optional: item.env === 'either',
+        group,
       });
     }
   }
 
   const total = items.length;
   const notReady = blockers.length;
-  return { server, client, both: { ready: total - notReady, total, ok: server.ok && client.ok }, blockers };
+  return { server, client, all: { ready: total - notReady, total, ok: server.ok && client.ok }, groups, blockers };
 }

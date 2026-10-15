@@ -27,10 +27,10 @@ bucket_name = "mcmodsready-data"
 binding = "STATE"
 id = "86a33fff6b884035973277ebf1949d28"
 
-# Enable Analytics Engine in the dashboard, then uncomment for affiliate click counts:
-# [[analytics_engine_datasets]]
-# binding = "CLICKS"
-# dataset = "mcmodsready_clicks"
+# Anonymous affiliate click counts (partner + source page only). Dataset is created on first write.
+[[analytics_engine_datasets]]
+binding = "CLICKS"
+dataset = "mcmodsready_clicks"
 
 [vars]
 GITHUB_REPO = "Baldilocks47/mcmodsready"

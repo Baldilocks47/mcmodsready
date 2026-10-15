@@ -23,15 +23,15 @@
 </script>
 
 <!-- tabindex makes the tip reachable by keyboard and by tap on touch screens -->
-<figure class="ring" class:ok tabindex="0" aria-describedby={id}>
+<figure class="ring" class:ok={ok && total > 0} class:empty={total === 0} tabindex="0" aria-describedby={id}>
   <svg viewBox="0 0 80 80" width="96" height="96" aria-hidden="true">
     <circle cx="40" cy="40" r={R} class="track" />
     <circle cx="40" cy="40" r={R} class="val" stroke-dasharray="{C * frac} {C}" transform="rotate(-90 40 40)" />
-    <text x="40" y="45" text-anchor="middle">{ok ? '✓' : `${ready}/${total}`}</text>
+    <text x="40" y="45" text-anchor="middle">{total === 0 ? '0' : ok ? '✓' : `${ready}/${total}`}</text>
   </svg>
   <figcaption>
     <strong>{label} <span class="info" aria-hidden="true">ⓘ</span></strong>
-    <span class="small">{ok ? (total ? 'Ready' : 'Nothing needed') : `${total - ready} blocking`}</span>
+    <span class="small">{total === 0 ? 'None in your list' : ok ? 'Ready' : `${total - ready} blocking`}</span>
   </figcaption>
   <div class="tip" role="tooltip" {id}>
     <p>{description}</p>
@@ -58,6 +58,8 @@
   .info { font-size: 0.8em; color: var(--muted); }
   .ok figcaption .small { color: var(--s-ready); }
   figcaption .small { color: var(--s-not); }
+  .empty .val { stroke: transparent; }
+  .empty figcaption .small, .empty text { color: var(--muted); fill: var(--muted); }
 
   .tip {
     position: absolute;

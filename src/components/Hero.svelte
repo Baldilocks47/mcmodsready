@@ -38,6 +38,7 @@
   const pre = $derived(w.top100.prerelease ?? 0);
   const recent = $derived(feed.filter((e) => e.loader === loader).slice(0, 8));
   const daysSince = $derived(Math.floor((Date.now() - Date.parse(latest.releasedAt!)) / 86_400_000));
+  const ageDays = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
   const pct = (n: number) => `${(100 * n) / Math.max(1, total)}%`;
 </script>
 
@@ -88,13 +89,16 @@
   <h2>How fast do mods update?</h2>
   <p class="muted small">Share of the top 100 {LOADER_LABEL[loader]} mods with a release build, by days after each drop.</p>
   <table>
-    <thead><tr><th scope="col">Drop</th><th scope="col">Day 1</th><th scope="col">Day 7</th><th scope="col">Day 30</th><th scope="col">Now</th></tr></thead>
+    <thead><tr><th scope="col">Drop</th><th scope="col">Day 1</th><th scope="col">Day 7</th><th scope="col">Day 30</th><th scope="col" title="Days since each drop was released">Now</th></tr></thead>
     <tbody>
       {#each s.lag as l}
         <tr>
           <th scope="row">{l.drop}</th>
-          {#each [l.readyBy[1], l.readyBy[7], l.readyBy[30], l.readyCount] as n}
-            <td><span class="mini"><span style:width="{(100 * n) / l.of}%"></span></span> {Math.round((100 * n) / l.of)}%</td>
+          {#each [l.readyBy[1], l.readyBy[7], l.readyBy[30], l.readyCount] as n, i}
+            <td>
+              <span class="mini"><span style:width="{(100 * n) / l.of}%"></span></span> {Math.round((100 * n) / l.of)}%
+              {#if i === 3}<span class="since muted small">· day {ageDays(l.releasedAt)}</span>{/if}
+            </td>
           {/each}
         </tr>
       {/each}
@@ -117,5 +121,6 @@
   th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .mini { display: inline-block; width: 48px; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; vertical-align: middle; }
   .mini > span { display: block; height: 100%; background: var(--s-ready); }
+  .since { white-space: nowrap; }
   @media (max-width: 520px) { .mini { display: none; } }
 </style>
