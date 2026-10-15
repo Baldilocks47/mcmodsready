@@ -4,8 +4,8 @@ import ListBuilder from '../components/ListBuilder.svelte';
 import { meta } from '../lib/build-data';
 
 const m = meta();
-// Label for the hosting affiliate button; unset = no CTA shown.
-const hostCta = (import.meta.env.PUBLIC_HOST_CTA as string | undefined) || null;
+// Label for the hosting affiliate button (/go/host -> Apex Hosting via the Worker). Override with PUBLIC_HOST_CTA.
+const hostCta = (import.meta.env.PUBLIC_HOST_CTA as string | undefined) || 'Get a modded server at Apex Hosting';
 ---
 
 <Base

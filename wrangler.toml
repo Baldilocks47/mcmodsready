@@ -35,7 +35,7 @@ id = "86a33fff6b884035973277ebf1949d28"
 [vars]
 GITHUB_REPO = "Baldilocks47/mcmodsready"
 # Partner name -> affiliate URL. Example: {"host":"https://partner.example/?ref=abc"}
-AFFILIATES = "{}"
+AFFILIATES = '{"host":"https://billing.apexminecrafthosting.com/aff.php?aff=17203"}'
 
 # Secret (set once with `npx wrangler secret put GITHUB_TOKEN`):
 #   GITHUB_TOKEN  fine-grained PAT, this repo only, "Contents: read and write"
