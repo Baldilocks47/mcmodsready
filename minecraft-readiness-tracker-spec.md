@@ -213,7 +213,7 @@ Live at https://mcmodsready.com with full automation: the Worker cron (every 10 
 ### Next phase (agreed order, toward the mid-November soft launch)
 
 1. ~~**"Ready for 26.x" badges**~~ **Done (16 Oct):** `/badge/<mod>.svg` on the Worker + `/badges` builder page; works for any Modrinth mod.
-2. **Social preview (OG) images** per drop and per mod page, so shared links look good on Reddit/Discord.
+2. ~~**Social preview (OG) images**~~ **Done (16 Oct):** generated at build (`pipeline/og.ts`), per site page and per pre-rendered mod page, cached by content hash.
 3. **26.3 adoption report page**: day-1/7/30 readiness by loader, plus the Forge finding (15 of the top 100 Forge mods ready for 26.3 vs 75 Fabric / 68 NeoForge). Doubles as the soft-launch post.
 4. **Import**: `.mrpack` upload and dropping a mods folder's jars (SHA-1 hashed in the browser, looked up by hash; files never uploaded).
 5. **Alternatives v2**: semantic embeddings over full project bodies, port/fork detection, then a small eval set in CI.
