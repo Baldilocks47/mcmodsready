@@ -64,20 +64,28 @@ const grassUrl = `url("data:image/svg+xml,${encodeURIComponent(grassStrip.trim()
       </div>
     </footer>
     <script>
-      // Stale-data banner + relative "updated" time.
+      // "Updated" time + stale-data banner, based on the LIVE data (meta.json), not when this page was built:
+      // pages are only rebuilt nightly, but data refreshes more often.
+      import { DATA_BASE } from '../lib/ui/status';
       const t = document.querySelector<HTMLTimeElement>('time[data-ago]');
-      if (t) {
-        const age = Date.now() - Date.parse(t.dateTime);
+      const show = (iso: string) => {
+        if (!t) return;
+        const age = Date.now() - Date.parse(iso);
         const h = Math.round(age / 3.6e6);
+        t.dateTime = iso;
         t.textContent = h < 1 ? 'less than an hour ago' : h < 48 ? `${h}h ago` : `${Math.round(h / 24)} days ago`;
-        if (age > 24 * 3.6e6) {
+        if (age > 36 * 3.6e6 && !document.querySelector('.stale')) {
           const b = document.createElement('div');
           b.className = 'stale';
           b.setAttribute('role', 'status');
           b.textContent = `Heads up: data was last refreshed ${t.textContent}. Statuses may be out of date.`;
           document.querySelector('main')?.prepend(b);
         }
-      }
+      };
+      fetch(`${DATA_BASE}/meta.json`)
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((m: { generatedAt: string }) => show(m.generatedAt))
+        .catch(() => t && show(t.dateTime));
     </script>
     <style>
       .site-header { position: relative; background: #1e2125; color: #f1efe8; margin-bottom: 32px; border-bottom: 2px solid #0b0c0e; }

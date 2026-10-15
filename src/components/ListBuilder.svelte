@@ -5,7 +5,7 @@
   import { altDrop, cellAt, defaultTarget, depsAt, isUpcoming, parseTarget } from '../lib/core/targets';
   import type { Drop, GameVersion, Loader, ModFile, Status } from '../lib/core/types';
   import { loadMods, resolveNames, searchMods, type SearchResult } from '../lib/ui/data';
-  import { DECLARED_NOTE, ENV, LOADER_LABEL, modrinthUrl } from '../lib/ui/status';
+  import { DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, modrinthUrl } from '../lib/ui/status';
   import Chip from './Chip.svelte';
   import Ring from './Ring.svelte';
   import TargetPicker from './TargetPicker.svelte';
@@ -192,6 +192,13 @@
     }
   }
   const sideLabel = (s: ('server' | 'client')[]) => (s.length === 2 ? 'server + client' : s[0]);
+  const blockerNames = (side?: 'server' | 'client') =>
+    result.blockers.filter((b) => !side || b.sides.includes(side)).map((b) => `${b.title} (${STATUS[b.status].label.toLowerCase()})`);
+  const RING_HELP = {
+    server: 'Mods your server must run: server-side mods plus anything needed on both sides. Ready means you can update the server to this version.',
+    client: 'Mods every player installs in their game: client-side mods plus anything needed on both sides. Ready means players can update.',
+    both: 'Your whole list, server and client together. Ready only when nothing is blocking anywhere.',
+  };
   const fmtDl = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 </script>
 
@@ -257,9 +264,9 @@
         </div>
       {:else}
         <div class="card rings">
-          <Ring label="Server" {...result.server} />
-          <Ring label="Client" {...result.client} />
-          <Ring label="Both" {...result.both} />
+          <Ring label="Server" {...result.server} description={RING_HELP.server} blockers={blockerNames('server')} />
+          <Ring label="Client" {...result.client} description={RING_HELP.client} blockers={blockerNames('client')} />
+          <Ring label="Both" {...result.both} description={RING_HELP.both} blockers={blockerNames()} />
         </div>
         <p class="small muted">
           Checking against <strong>{target.label}</strong> on {LOADER_LABEL[list.loader]}. {DECLARED_NOTE}

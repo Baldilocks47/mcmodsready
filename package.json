@@ -8,7 +8,8 @@
     "preview": "astro preview",
     "data": "tsx pipeline/build-data.ts",
     "test": "vitest run",
-    "check": "astro check && tsc --noEmit"
+    "check": "astro check && tsc --noEmit",
+    "deploy": "tsx pipeline/check-fresh.ts && astro build && wrangler deploy"
   },
   "author": "",
   "license": "ISC",
