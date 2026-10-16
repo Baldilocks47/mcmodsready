@@ -1,16 +1,20 @@
 // Quick traffic report: Cloudflare Web Analytics (cookieless) + affiliate clicks and badge loads.
-// Needs a read-only API token with "Account Analytics: Read", in .env.analytics (gitignored):
+// Needs a read-only API token with "Account Analytics: Read", in .env.analytics (gitignored) or ~/mcmodsready/.env.analytics:
 //   CF_ANALYTICS_TOKEN=...
 // Usage: npm run stats [-- days]
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const ACCOUNT = process.env.CF_ACCOUNT_ID ?? 'eb54895a32fd417b580e35943342f0ca';
 const days = Number(process.argv[2] ?? 7);
 
 function token(): string {
   if (process.env.CF_ANALYTICS_TOKEN) return process.env.CF_ANALYTICS_TOKEN;
-  if (existsSync('.env.analytics')) {
-    const m = /^CF_ANALYTICS_TOKEN=(.+)$/m.exec(readFileSync('.env.analytics', 'utf8'));
+  // project folder first, then a secrets folder kept outside the repo (~/mcmodsready)
+  for (const f of ['.env.analytics', join(homedir(), 'mcmodsready', '.env.analytics')]) {
+    if (!existsSync(f)) continue;
+    const m = /^CF_ANALYTICS_TOKEN=(.+)$/m.exec(readFileSync(f, 'utf8'));
     if (m) return m[1].trim();
   }
   console.error('No token. Put CF_ANALYTICS_TOKEN=... in .env.analytics (see README).');
