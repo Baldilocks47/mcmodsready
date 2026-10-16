@@ -11,6 +11,7 @@ import { dropCell } from '../src/lib/core/status';
 import { contextFor } from '../src/lib/core/targets';
 import type { Loader, ModFile, Status } from '../src/lib/core/types';
 import type { MetaFile, PageRef, StatsFile } from '../src/lib/data-schema';
+import { reportFor } from '../src/lib/report';
 
 const DATA = process.env.DATA_DIR ?? 'public/data';
 const OUT = 'dist/og';
@@ -128,6 +129,18 @@ async function main() {
     h('div', {}, 'A free badge that shows if your mod is ready for the'),
     h('div', {}, 'latest Minecraft version, and updates by itself.'),
   )), 'badges.png');
+
+  // adoption report cards, one per released drop
+  for (const d of meta.drops.filter((x) => !x.upcoming)) {
+    const r = reportFor(d.id);
+    await render(
+      frame(
+        headline(`Minecraft ${d.id}: how fast did mods update?`, 52),
+        h('div', { flexDirection: 'column', width: W - 128 }, ...r.curves.map((c) => bar(`${LOADER[c.loader]}: ${c.dayOne} ready on day 1`, c.readyNow, 100))),
+      ),
+      `report-${d.id}.png`,
+    );
+  }
 
   // per-mod cards for pre-rendered pages
   const pages = (await read<PageRef[]>("pages.json")).slice(0, Number(process.env.OG_LIMIT ?? Infinity));

@@ -104,6 +104,7 @@
       {/each}
     </tbody>
   </table>
+  <p class="small"><a href="/report/{latest.id}">Read the full {latest.id} adoption report →</a> Day-by-day curves, the Forge to NeoForge shift, and the biggest mods still waiting.</p>
 </section>
 
 <style>

@@ -50,7 +50,7 @@ type Rum = { viewer: { accounts: { daily: Group[]; paths: Group[]; refs: Group[]
 const rum = await graphql<Rum>(
   `query ($acc: string!, $since: Date!) {
     viewer { accounts(filter: { accountTag: $acc }) {
-      daily: rumPageloadEventsAdaptiveGroups(limit: 100, filter: { date_geq: $since }, orderBy: [date_ASC]) { count sum { visits } dimensions { date } }
+      daily: rumPageloadEventsAdaptiveGroups(limit: 50, filter: { date_geq: $since }, orderBy: [date_ASC]) { count sum { visits } dimensions { date } }
       paths: rumPageloadEventsAdaptiveGroups(limit: 10, filter: { date_geq: $since }, orderBy: [count_DESC]) { count sum { visits } dimensions { requestPath } }
       refs: rumPageloadEventsAdaptiveGroups(limit: 10, filter: { date_geq: $since, refererHost_neq: "" }, orderBy: [count_DESC]) { count sum { visits } dimensions { refererHost } }
       countries: rumPageloadEventsAdaptiveGroups(limit: 5, filter: { date_geq: $since }, orderBy: [count_DESC]) { count sum { visits } dimensions { countryName } }
@@ -59,6 +59,7 @@ const rum = await graphql<Rum>(
   { acc: ACCOUNT, since },
 );
 const a = rum.viewer.accounts[0];
+// Web Analytics samples at low volume (shown as ~10x counts); figures are estimates.
 const totalViews = a.daily.reduce((s, d) => s + d.count, 0);
 const totalVisits = a.daily.reduce((s, d) => s + d.sum.visits, 0);
 

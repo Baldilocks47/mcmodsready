@@ -1,0 +1,135 @@
+---
+// Adoption report per released drop: how fast the top mods updated. Regenerated nightly.
+import Base from '../../layouts/Base.astro';
+import CurveChart from '../../components/CurveChart.svelte';
+import { meta } from '../../lib/build-data';
+import { reportFor } from '../../lib/report';
+import { LOADER_LABEL, STATUS, fmtDownloads } from '../../lib/ui/status';
+
+export function getStaticPaths() {
+  return meta()
+    .drops.filter((d) => !d.upcoming)
+    .map((d) => ({ params: { drop: d.id } }));
+}
+
+const { drop: dropId } = Astro.params;
+const r = reportFor(dropId!);
+const released = new Date(r.drop.releasedAt!).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const pct = (n: number) => `${n}%`;
+const byLoader = Object.fromEntries(r.curves.map((c) => [c.loader, c]));
+const others = meta().drops.filter((d) => !d.upcoming && d.id !== r.drop.id);
+const f = r.forgeMigration;
+---
+
+<Base
+  ogImage={`/og/report-${r.drop.id}.png`}
+  title={`Minecraft ${r.drop.id}: how fast did mods update? Fabric, NeoForge & Forge`}
+  description={`${r.daysOut} days after Minecraft ${r.drop.id}: ${r.curves.map((c) => `${LOADER_LABEL[c.loader]} ${c.readyNow}%`).join(', ')} of the top 100 mods have a release build. Day-by-day update speed, the Forge to NeoForge shift, and the biggest mods still waiting.`}
+>
+  <article class="report">
+    <p class="kicker small muted">Adoption report · updated daily</p>
+    <h1>Minecraft {r.drop.id}: how fast did mods update?</h1>
+    <p class="lede">
+      {r.drop.id} came out on {released}, {r.daysOut} days ago. We looked at the 100 most-downloaded mods on Modrinth for
+      each loader and checked when each one published a release build for {r.drop.id}.
+    </p>
+
+    <div class="tiles">
+      {r.curves.map((c) => (
+        <div class="card tile">
+          <div class="small muted">{LOADER_LABEL[c.loader]}</div>
+          <div class="big">{pct(c.readyNow)}</div>
+          <div class="small">of the top 100 ready{c.betaNow ? `, ${c.betaNow} more in beta` : ''}</div>
+          <div class="small muted">{c.dayOne} were ready within a day</div>
+        </div>
+      ))}
+    </div>
+
+    <section class="card">
+      <h2>Ready by day</h2>
+      <p class="small muted">Share of each loader's top 100 with a release build, by days after {r.drop.id} came out.</p>
+      <CurveChart client:visible curves={r.curves} drop={r.drop.id} />
+    </section>
+
+    {byLoader.forge && byLoader.neoforge && (
+      <section class="card">
+        <h2>Forge is being left behind</h2>
+        <p>
+          Only <strong>{byLoader.forge.readyNow}</strong> of the top 100 Forge mods have a Forge release for {r.drop.id}. Of the {f.notReadyOnForge} that
+          don't, <strong>{f.readyOnNeoForge}</strong> already have a release for <strong>NeoForge</strong> instead.
+          {f.examples.length > 0 && <> Examples: {f.examples.join(', ')}.</>}
+        </p>
+        <p class="small muted">
+          If you're on Forge and planning to update, it's worth checking whether your pack works on NeoForge: try your list on
+          both in the <a href="/list">list checker</a>.
+        </p>
+      </section>
+    )}
+
+    <section class="card">
+      <h2>Compared with earlier drops</h2>
+      <p class="small muted">Share of the top 100 with a release build after 1, 7 and 30 days, and today.</p>
+      <div class="hist">
+        {r.history.map((h) => (
+          <table>
+            <caption>{LOADER_LABEL[h.loader]}</caption>
+            <thead><tr><th scope="col">Drop</th><th scope="col">Day 1</th><th scope="col">Day 7</th><th scope="col">Day 30</th><th scope="col">Now</th></tr></thead>
+            <tbody>
+              {h.rows.map((row) => (
+                <tr class:list={[{ cur: row.drop === r.drop.id }]}>
+                  <th scope="row">{row.drop}</th><td>{pct(row.d1)}</td><td>{pct(row.d7)}</td><td>{pct(row.d30)}</td><td>{pct(row.now)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ))}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Biggest mods still waiting</h2>
+      <p class="small muted">The most-downloaded mods with no release build for {r.drop.id} on any loader yet (inactive mods left out).</p>
+      <ol class="waiting">
+        {r.waiting.map((w) => (
+          <li>
+            <a href={`/mod/${w.slug}`}>{w.title}</a>
+            <span class={`chip s-${w.status}`}><span class="i" aria-hidden="true">{STATUS[w.status].icon}</span>{STATUS[w.status].label}</span>
+            <span class="small muted">{fmtDownloads(w.downloads)} downloads · {w.loaders.map((l) => LOADER_LABEL[l]).join(', ')}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="card method">
+      <h2>How this was measured</h2>
+      <ul class="small">
+        <li>"Top 100" is the 100 most-downloaded mods for each loader on Modrinth, re-ranked every day.</li>
+        <li>"Ready" means the author published a <em>release</em> build tagged for {r.drop.id} or a {r.drop.id}.x patch. Beta and alpha builds don't count.</li>
+        <li>Days are counted from Mojang's release to the first such build. Builds tagged before release count as day 0.</li>
+        <li>This is what authors declare on Modrinth: a mod can work without being tagged, or be tagged and still have bugs. CurseForge-only mods aren't included.</li>
+      </ul>
+      {others.length > 0 && <p class="small">Other reports: {others.map((d, i) => <>{i ? ' · ' : ''}<a href={`/report/${d.id}`}>{d.id}</a></>)}</p>}
+    </section>
+
+    <p><a class="btn primary" href="/list">Check if your own mods are ready →</a></p>
+  </article>
+</Base>
+
+<style>
+  .report { display: flex; flex-direction: column; gap: 16px; }
+  .kicker { margin: 0; }
+  h1 { margin: 0; }
+  .lede { font-size: 1.1rem; margin: 0; max-width: 760px; }
+  .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .tile .big { font-family: var(--pixel); font-size: 40px; line-height: 1.1; color: var(--accent); text-shadow: var(--pixel-shadow); }
+  .hist { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  caption { text-align: left; font-weight: 700; padding-bottom: 4px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  tr.cur { background: var(--surface-2); }
+  .waiting { margin: 0; padding-left: 24px; }
+  .waiting li { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .waiting li::marker { color: var(--muted); }
+  .waiting a { font-weight: 700; color: var(--text); }
+  .method ul { margin: 0; padding-left: 20px; }
+</style>

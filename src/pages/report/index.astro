@@ -1,0 +1,6 @@
+---
+// /report always points at the latest released drop's report.
+import { meta } from '../../lib/build-data';
+const latest = meta().drops.find((d) => !d.upcoming)!;
+return Astro.redirect(`/report/${latest.id}`);
+---
