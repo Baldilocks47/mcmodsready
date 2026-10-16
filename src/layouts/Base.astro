@@ -42,6 +42,8 @@ const grassUrl = `url("data:image/svg+xml,${encodeURIComponent(grassStrip.trim()
     <meta name="theme-color" content="#2f7d32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <slot name="head" />
+    <!-- Cloudflare Web Analytics: cookieless, aggregate page-view counts only. Token is public by design. -->
+    <script is:inline type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "1c9c1a8331894123b25f96874964dd07"}'></script>
   </head>
   <body>
     <header class="site-header" style={`--grass-strip: ${grassUrl}`}>
