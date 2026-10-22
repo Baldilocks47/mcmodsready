@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
-Disallow: /m
+# /m (live lookup page) is kept out of search with a noindex tag instead: a robots rule like
+# "Disallow: /m" is a prefix match and would also block /mods and every /mod/ page.
 Disallow: /go/
 
 Sitemap: https://mcmodsready.com/sitemap-index.xml
