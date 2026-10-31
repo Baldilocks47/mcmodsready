@@ -80,12 +80,13 @@ try {
     `SELECT blob1 AS kind, blob2 AS what, blob3 AS site, SUM(_sample_interval) AS n FROM mcmodsready_clicks
      WHERE timestamp > NOW() - INTERVAL '${days}' DAY GROUP BY kind, what, site ORDER BY n DESC LIMIT 30`,
   );
-  const badges = clicks.data.filter((r) => r.kind === 'badge');
+  // loads from our own pages (builder previews, crawlers rendering them) aren't adoption
+  const badges = clicks.data.filter((r) => r.kind === 'badge' && r.site && !String(r.site).endsWith('mcmodsready.com'));
   const aff = clicks.data.filter((r) => r.kind !== 'badge');
   console.log('\nAffiliate clicks (/go/):');
   if (!aff.length) console.log('  (none yet)');
   for (const r of aff) console.log(`  ${String(r.n).padStart(5)}  ${r.kind} from ${r.what || '?'}`);
-  console.log('\nBadge loads:');
+  console.log('\nBadge loads on other sites:');
   if (!badges.length) console.log('  (none yet)');
   for (const r of badges) console.log(`  ${String(r.n).padStart(5)}  ${r.what}${r.site ? `  on ${r.site}` : ''}`);
 } catch (e) {

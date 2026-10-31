@@ -68,8 +68,10 @@ const grassUrl = `url("data:image/svg+xml,${encodeURIComponent(grassStrip.trim()
           Updated <time datetime={m.generatedAt} data-ago>{m.generatedAt.slice(0, 16).replace('T', ' ')} UTC</time>.
           {DECLARED_NOTE}
         </p>
+        <p class="disclaimer">NOT AN OFFICIAL MINECRAFT SERVICE. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</p>
         <p>
-          Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+          Not affiliated with or endorsed by Modrinth. mcmodsready is an independent fan project and is responsible for this site.
+          Contact: <a href="mailto:hello@mcmodsready.com">hello@mcmodsready.com</a>
         </p>
         <p>
           <a href="/browse/1">Browse all mods</a> · <a href="/report">Adoption reports</a> · <a href="/badges">Badges for mod authors</a> · <a href="/about">About</a>
@@ -117,6 +119,7 @@ const grassUrl = `url("data:image/svg+xml,${encodeURIComponent(grassStrip.trim()
       nav { display: flex; gap: 16px; }
       nav a { color: #f1efe8; text-decoration: none; font-family: var(--pixel); font-weight: 400; font-size: 24px; text-shadow: 2px 2px 0 #000; }
       nav a:hover { color: #8fd655; }
+      .disclaimer { color: var(--text); font-weight: 700; }
       .site-footer { border-top: 2px solid var(--outline); margin-top: 48px; padding: 16px 0 32px; background: var(--surface-2); }
       :global(.stale) { background: var(--s-pre-bg); color: var(--s-pre); padding: 8px 12px; border: 2px solid currentColor; border-radius: 3px; margin-bottom: 16px; }
     </style>

@@ -23,12 +23,12 @@ const f = r.forgeMigration;
 
 <Base
   ogImage={`/og/report-${r.drop.id}.png`}
-  title={`Minecraft ${r.drop.id}: how fast did mods update? Fabric, NeoForge & Forge`}
+  title={`How fast did mods update to Minecraft ${r.drop.id}? Fabric, NeoForge & Forge`}
   description={`${r.daysOut} days after Minecraft ${r.drop.id}: ${r.curves.map((c) => `${LOADER_LABEL[c.loader]} ${c.readyNow}%`).join(', ')} of the top 100 mods have a release build. Day-by-day update speed, the Forge to NeoForge shift, and the biggest mods still waiting.`}
 >
   <article class="report">
     <p class="kicker small muted">Adoption report · updated daily</p>
-    <h1>Minecraft {r.drop.id}: how fast did mods update?</h1>
+    <h1>How fast did mods update to Minecraft {r.drop.id}?</h1>
     <p class="lede">
       {r.drop.id} came out on {released}, {r.daysOut} days ago. We looked at the 100 most-downloaded mods on Modrinth for
       each loader and checked when each one published a release build for {r.drop.id}.

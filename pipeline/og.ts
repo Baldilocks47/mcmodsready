@@ -135,7 +135,7 @@ async function main() {
     const r = reportFor(d.id);
     await render(
       frame(
-        headline(`Minecraft ${d.id}: how fast did mods update?`, 52),
+        headline(`How fast did mods update to Minecraft ${d.id}?`, 52),
         h('div', { flexDirection: 'column', width: W - 128 }, ...r.curves.map((c) => bar(`${LOADER[c.loader]}: ${c.dayOne} ready on day 1`, c.readyNow, 100))),
       ),
       `report-${d.id}.png`,

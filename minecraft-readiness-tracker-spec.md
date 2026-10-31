@@ -205,7 +205,7 @@ Live at https://mcmodsready.com with full automation: the Worker cron (every 10 
 - [x] Git history: AI co-author trailers removed and author email set to hello@mcmodsready.com (`.git/rewrite-history.sh`, run by the owner; force-pushes main)
 - [x] Add hello@mcmodsready.com to the GitHub account so commits link to it
 - [x] Apex Hosting affiliate live via `/go/host` (CTA on the list checker, disclosed on About)
-- [ ] Optional: enable Analytics Engine, then uncomment the `CLICKS` binding for affiliate click counts
+- [x] Analytics Engine enabled; `CLICKS` binding on for affiliate and badge counts
 - [x] Cloudflare Web Analytics
 - [x] Minecraft-flavoured restyle (original pixel look, no Mojang assets)
 - [x] Worker cron attached, `GITHUB_TOKEN` Worker secret set, `CLOUDFLARE_API_TOKEN` upgraded to Workers edit
