@@ -6,3 +6,5 @@ public/data/
 .wrangler/
 .env
 .env.analytics
+test-results/
+playwright-report/

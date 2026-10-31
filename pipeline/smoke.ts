@@ -1,7 +1,7 @@
 // Checks the live site after a deploy (and daily, from the health workflow).
+// Usage: npx tsx pipeline/smoke.ts [baseUrl] [--max-age-hours N]
 export {};
 
-// Usage: npx tsx pipeline/smoke.ts [baseUrl] [--max-age-hours N]
 const base = process.argv[2]?.startsWith('http') ? process.argv[2] : 'https://mcmodsready.com';
 const ageArg = process.argv.indexOf('--max-age-hours');
 const maxAgeHours = ageArg > 0 ? Number(process.argv[ageArg + 1]) : 36;

@@ -21,3 +21,9 @@ jobs:
         run: npm run build
         env:
           DATA_DIR: tests/fixtures/data
+      - name: Check the built output
+        run: npx vitest run tests/build-output.test.ts
+      - name: Browser tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e

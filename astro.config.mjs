@@ -6,8 +6,8 @@ export default defineConfig({
   site: 'https://mcmodsready.com',
   integrations: [
     svelte(),
-    // /m is the live lookup page (noindex); 404 is not a page
-    sitemap({ filter: (url) => !/\/(m|404)$/.test(url) }),
+    // /m is the live lookup page (noindex), /report only redirects to the latest report
+    sitemap({ filter: (url) => !/\/(m|404|report)$/.test(url) }),
   ],
   trailingSlash: 'never',
   build: { format: 'file' },
