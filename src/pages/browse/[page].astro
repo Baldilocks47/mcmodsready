@@ -1,0 +1,39 @@
+---
+// Plain, crawlable index of every pre-rendered mod page, most downloaded first.
+import type { GetStaticPaths } from 'astro';
+import Base from '../../layouts/Base.astro';
+import { BROWSE_PER_PAGE as PER_PAGE, meta, modFile, pages } from '../../lib/build-data';
+import { fmtDownloads } from '../../lib/ui/status';
+
+export const getStaticPaths = (() => {
+  const total = Math.ceil(pages().length / PER_PAGE);
+  return Array.from({ length: total }, (_, i) => ({ params: { page: String(i + 1) }, props: { n: i + 1, total } }));
+}) satisfies GetStaticPaths;
+
+const { n, total } = Astro.props;
+const latest = meta().drops.find((d) => !d.upcoming)!;
+const mods = pages()
+  .slice((n - 1) * PER_PAGE, n * PER_PAGE)
+  .map((p) => modFile(p.id));
+---
+
+<Base
+  title={`Browse Minecraft mods for ${latest.id}, page ${n} of ${total}`}
+  description={`Check whether popular Fabric, NeoForge and Forge mods are ready for Minecraft ${latest.id}. Page ${n} of ${total}, most downloaded first.`}
+>
+  <h1>Browse mods: page {n} of {total}</h1>
+  <p class="muted">Most downloaded first. Pick a mod to see if it's ready for {latest.id} and older versions.</p>
+  <ul class="browse">
+    {mods.map((m) => <li><a href={`/mod/${m.slug}`}>{m.title}</a> <span class="small muted">{fmtDownloads(m.downloads)}</span></li>)}
+  </ul>
+  <nav class="pager" aria-label="Pages">
+    {n > 1 && <a class="btn" href={`/browse/${n - 1}`} rel="prev">← Previous</a>}
+    {n < total && <a class="btn" href={`/browse/${n + 1}`} rel="next">Next →</a>}
+  </nav>
+</Base>
+
+<style>
+  .browse { list-style: none; padding: 0; columns: 2 260px; column-gap: 24px; }
+  .browse li { break-inside: avoid; padding: 3px 0; }
+  .pager { display: flex; gap: 8px; margin-top: 16px; }
+</style>

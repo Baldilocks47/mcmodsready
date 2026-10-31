@@ -7,6 +7,9 @@ import type { FeedEvent, MatrixFile, MetaFile, PageRef, StatsFile } from './data
 const DIR = process.env.DATA_DIR ?? 'public/data';
 const read = <T>(f: string): T => JSON.parse(readFileSync(join(DIR, f), 'utf8')) as T;
 
+/** Mods per /browse/<n> page. */
+export const BROWSE_PER_PAGE = 100;
+
 export const meta = () => read<MetaFile>('meta.json');
 export const stats = (l: Loader) => read<StatsFile>(`stats-${l}.json`);
 export const matrix = (l: Loader) => read<MatrixFile>(`matrix-${l}.json`);

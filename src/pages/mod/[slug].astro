@@ -3,7 +3,7 @@
 // /m?p=<slug>, which the 404 page redirects to, so /mod/<anything> always works.
 import Base from '../../layouts/Base.astro';
 import ModView from '../../components/ModView.svelte';
-import { hasMod, meta, modFile, pages } from '../../lib/build-data';
+import { BROWSE_PER_PAGE, hasMod, meta, modFile, pages } from '../../lib/build-data';
 import { LOADER_LABEL } from '../../lib/ui/status';
 import type { Loader } from '../../lib/core/types';
 
@@ -20,6 +20,13 @@ const loaders = (Object.keys(mod.loaders) as Loader[]).map((l) => LOADER_LABEL[l
 // Titles for alternative links (by slug).
 const altSlugs = new Set(Object.values(mod.alts ?? {}).flatMap((byDrop) => Object.values(byDrop ?? {}).flat().map((a) => a.slug)));
 const titles: Record<string, string> = {};
+const all = pages();
+const at = all.findIndex((p) => p.id === id);
+const nearby = all
+  .slice(Math.max(0, at - 3), at + 4)
+  .filter((p) => p.id !== id)
+  .map((p) => ({ slug: p.slug, title: modFile(p.id).title }));
+const browsePage = Math.floor(at / BROWSE_PER_PAGE) + 1;
 const slugToId = new Map(pages().map((p) => [p.slug, p.id]));
 for (const s of altSlugs) {
   const altId = slugToId.get(s);
@@ -33,4 +40,11 @@ for (const s of altSlugs) {
   description={`Is ${mod.title} ready for Minecraft ${latest.id}? See its status for every recent version, older versions like ${m.popularLegacy.fabric?.[0] ?? '1.20.1'}, update speed, and alternatives.`}
 >
   <ModView mod={mod} drops={m.drops} versions={m.versions} popularLegacy={m.popularLegacy} {titles} />
+  <nav class="small" aria-label="Related mods">
+    <p>
+      Similarly popular mods:
+      {nearby.map((n, i) => <>{i ? ' · ' : ''}<a href={`/mod/${n.slug}`}>{n.title}</a></>)}
+      · <a href={`/browse/${browsePage}`}>browse all</a>
+    </p>
+  </nav>
 </Base>
