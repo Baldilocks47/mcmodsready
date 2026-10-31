@@ -16,6 +16,8 @@ export interface MetaFile {
   latestSnapshot: string;
   /** window of drops shown as default columns, newest first */
   drops: Drop[];
+  /** every year-based drop ever released, plus any upcoming one in the window (for report pages) */
+  allDrops: Drop[];
   /** every targetable version that at least one tracked mod declares, newest first */
   versions: GameVersion[];
   /** older releases most mods target, per loader (e.g. 1.20.1, 1.21.1): suggested extra columns */

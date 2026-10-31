@@ -131,7 +131,7 @@ async function main() {
   )), 'badges.png');
 
   // adoption report cards, one per released drop
-  for (const d of meta.drops.filter((x) => !x.upcoming)) {
+  for (const d of meta.allDrops.filter((x) => !x.upcoming)) {
     const r = reportFor(d.id);
     await render(
       frame(

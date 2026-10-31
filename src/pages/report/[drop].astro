@@ -8,7 +8,7 @@ import { LOADER_LABEL, STATUS, fmtDownloads } from '../../lib/ui/status';
 
 export function getStaticPaths() {
   return meta()
-    .drops.filter((d) => !d.upcoming)
+    .allDrops.filter((d) => !d.upcoming)
     .map((d) => ({ params: { drop: d.id } }));
 }
 
@@ -17,7 +17,7 @@ const r = reportFor(dropId!);
 const released = new Date(r.drop.releasedAt!).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 const pct = (n: number) => `${n}%`;
 const byLoader = Object.fromEntries(r.curves.map((c) => [c.loader, c]));
-const others = meta().drops.filter((d) => !d.upcoming && d.id !== r.drop.id);
+const others = meta().allDrops.filter((d) => !d.upcoming && d.id !== r.drop.id);
 const f = r.forgeMigration;
 ---
 

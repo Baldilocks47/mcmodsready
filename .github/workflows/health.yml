@@ -1,0 +1,31 @@
+name: health
+
+# Daily check that the live site works and its data is fresh. Failing opens an issue, which GitHub
+# emails to the repo owner. Runs separately from `data` so it also catches the pipeline not running at all.
+on:
+  schedule:
+    - cron: '40 15 * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx pipeline/smoke.ts
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "Site health check failed ($(date -u +%F))" \
+            --body "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true

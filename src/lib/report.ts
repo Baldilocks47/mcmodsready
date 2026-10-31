@@ -41,7 +41,7 @@ const RANK: Status[] = ['ready', 'prerelease', 'snapshot', 'not_yet', 'no_build'
 
 export function reportFor(dropId: string): Report {
   const m = meta();
-  const drop = m.drops.find((d) => d.id === dropId)!;
+  const drop = m.allDrops.find((d) => d.id === dropId)!;
   const src = { drops: m.drops, versions: m.versions };
   const daysOut = Math.floor((Date.now() - Date.parse(drop.releasedAt!)) / DAY);
   const horizon = Math.min(30, daysOut);

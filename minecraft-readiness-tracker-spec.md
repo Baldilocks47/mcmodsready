@@ -221,6 +221,10 @@ Live at https://mcmodsready.com with full automation: the Worker cron (every 10 
 
 Then rollout stage 3 (badge outreach, hosting partner pitch) and 26.4 release-day prep.
 
+### Standing decisions (Oct 2026)
+
+Owner isn't named on the site, and the grass-block logo and grass-edge strip stay. Revisit either only if someone (e.g. Mojang) reaches out; the tick logo is in git history at commit 93c0c7a.
+
 ### Backlog (later)
 
 PWA/offline; notifications tier (waitlist first); self-served sponsor slot; ad networks once traffic justifies a consent banner.

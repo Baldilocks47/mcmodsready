@@ -10,7 +10,7 @@ const manifest = (release: string, snapshot: string, releaseTime: string) => ({
   versions: [{ id: release, releaseTime }],
 });
 
-function setup(m: ReturnType<typeof manifest>, state: unknown) {
+function setup(m: ReturnType<typeof manifest>, state: unknown, uploaded = NOW - HOUR) {
   const dispatches: { reason: string; rebuild: boolean }[] = [];
   const store = new Map<string, string>(state ? [['manifest', JSON.stringify(state)]] : []);
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
@@ -23,6 +23,7 @@ function setup(m: ReturnType<typeof manifest>, state: unknown) {
   const env = {
     GITHUB_REPO: 'o/r',
     GITHUB_TOKEN: 't',
+    DATA: { head: async () => ({ uploaded: new Date(uploaded) }) },
     STATE: {
       get: async (k: string) => (store.has(k) ? JSON.parse(store.get(k)!) : null),
       put: async (k: string, v: string) => void store.set(k, v),
@@ -75,6 +76,18 @@ describe('manifest cron', () => {
     const t = setup(manifest('26.4', '26.4', out), prev({ release: '26.4', snapshot: '26.4', releaseTime: out, lastRefresh: NOW - HOUR }));
     await checkManifest(t.env);
     expect(t.dispatches).toEqual([]);
+  });
+
+  it('triggers a backstop refresh when published data is stale, at most every 6h', async () => {
+    const stale = NOW - 30 * HOUR;
+    const t = setup(manifest('26.3', '26.4-snapshot-6', OLD), prev(), stale);
+    await checkManifest(t.env);
+    expect(t.dispatches).toEqual([{ reason: 'backstop', rebuild: true }]);
+    expect(t.saved().lastBackstop).toBe(NOW);
+
+    const again = setup(manifest('26.3', '26.4-snapshot-6', OLD), prev({ lastBackstop: NOW - HOUR }), stale);
+    await checkManifest(again.env);
+    expect(again.dispatches).toEqual([]);
   });
 
   it('a failed GitHub call keeps the old state so the next cron retries', async () => {

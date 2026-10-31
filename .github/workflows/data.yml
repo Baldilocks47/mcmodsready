@@ -33,6 +33,9 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -92,7 +95,7 @@ jobs:
           key: pipeline-${{ github.run_id }}-published
 
       - name: Daily snapshot (history)
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event.client_payload.reason == 'backstop'
         run: |
           day=$(date -u +%F)
           for f in meta.json matrix-fabric.json matrix-neoforge.json matrix-forge.json stats-fabric.json stats-neoforge.json stats-forge.json; do
@@ -130,3 +133,15 @@ jobs:
         with:
           path: .cache
           key: pipeline-${{ github.run_id }}-og
+
+      - name: Smoke test the live site
+        if: steps.decide.outputs.rebuild == 'true'
+        run: npx tsx pipeline/smoke.ts
+
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "Data pipeline failed ($(date -u +%F))" \
+            --body "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true

@@ -184,7 +184,8 @@ async function main() {
       icon: m.icon,
       downloads: m.downloads,
       env: m.env,
-      cells: Object.fromEntries(drops.map((d) => [d.id, cells.get(m.id)![d.id]])),
+      // every released drop, not just the shown columns: old report pages read these
+      cells: cells.get(m.id)!,
     }));
     await writeJson('matrix-' + loader + '.json', { loader, generatedAt, drops: drops.map((d) => d.id), mods: rows } satisfies MatrixFile);
 
@@ -259,6 +260,7 @@ async function main() {
     latestRelease: manifest.latest.release,
     latestSnapshot: manifest.latest.snapshot,
     drops,
+    allDrops: allDrops.filter((d) => !d.upcoming || drops.includes(d)),
     versions: allVersions.filter((v) => versionsWithData.has(v.id) || windowHas(drops, v.id)),
     popularLegacy,
     loaders: LOADERS,

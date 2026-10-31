@@ -22,12 +22,16 @@ export interface Env {
 const MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 const RELEASE_WINDOW_MS = 48 * 3600_000;
 const RELEASE_REFRESH_MS = 30 * 60_000;
+/** If the published data is older than this, trigger a refresh ourselves (GitHub's own schedule runs late, or can get paused). */
+const STALE_MS = 26 * 3600_000;
+const BACKSTOP_RETRY_MS = 6 * 3600_000;
 
 interface State {
   release: string;
   snapshot: string;
   releaseTime: string;
   lastRefresh: number;
+  lastBackstop?: number;
 }
 
 export default {
@@ -90,7 +94,14 @@ export async function checkManifest(env: Env): Promise<void> {
   else if (prev.snapshot !== m.latest.snapshot) reason = `new-snapshot:${m.latest.snapshot}`;
   else if (now - Date.parse(releaseTime) < RELEASE_WINDOW_MS && now - prev.lastRefresh >= RELEASE_REFRESH_MS) reason = 'release-day';
 
-  const next: State = { release: m.latest.release, snapshot: m.latest.snapshot, releaseTime, lastRefresh: prev?.lastRefresh ?? 0 };
+  const next: State = { release: m.latest.release, snapshot: m.latest.snapshot, releaseTime, lastRefresh: prev?.lastRefresh ?? 0, lastBackstop: prev?.lastBackstop };
+  if (!reason && now - (prev?.lastBackstop ?? 0) >= BACKSTOP_RETRY_MS) {
+    const published = await env.DATA.head('data/meta.json');
+    if (published && now - published.uploaded.getTime() > STALE_MS) {
+      reason = 'backstop';
+      next.lastBackstop = now;
+    }
+  }
   if (reason) {
     await dispatch(env, reason);
     next.lastRefresh = now;
