@@ -8,6 +8,10 @@
 > | `SELF_HOST_ICONS` | Self-hosted icons (`pipeline/icons.ts`) | Modrinth prefers it over loading from their CDN |
 >
 > First-run note: `ALT_EMBEDDINGS` has never run on real mod data. The sections below are kept as the design record.
+>
+> Alternatives baseline on the eval set (`npx vitest run tests/alternatives-eval.test.ts`): 6 of 18 good suggestions found, 5 of 35 shown are bad. The live site also applies the curated list, which this excludes.
+>
+> Still only testable for real at 26.4: release-day mode end to end. The dry run on 31 Oct exercised the Worker trigger, pipeline, publish, deploy and smoke test (not a real new-version column).
 
 Pick-up notes for future work. Each item says why it matters, how to build it against the current code, what to test, and when it's done. Product decisions and history live in [the spec](../minecraft-readiness-tracker-spec.md) (section 15); architecture and data files are in the [README](../README.md).
 

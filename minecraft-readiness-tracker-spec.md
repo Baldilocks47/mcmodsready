@@ -215,9 +215,9 @@ Live at https://mcmodsready.com with full automation: the Worker cron (every 10 
 1. ~~**"Ready for 26.x" badges**~~ **Done (16 Oct):** `/badge/<mod>.svg` on the Worker + `/badges` builder page; works for any Modrinth mod.
 2. ~~**Social preview (OG) images**~~ **Done (16 Oct):** generated at build (`pipeline/og.ts`), per site page and per pre-rendered mod page, cached by content hash.
 3. ~~**Adoption report page**~~ **Done (16 Oct):** `/report/<drop>` with ready-by-day curves, Forge to NeoForge shift (47 of 84), biggest mods still waiting; regenerated nightly.
-4. **Import**: `.mrpack` upload and dropping a mods folder's jars (SHA-1 hashed in the browser, looked up by hash; files never uploaded).
-5. **Alternatives v2**: semantic embeddings over full project bodies, port/fork detection, then a small eval set in CI.
-6. **Quality gates**: e2e test (pin list → share → reload) and Lighthouse CI.
+4. ~~**Import**~~ **Done (31 Oct):** `.mrpack` and jars, read in the browser; only hashes and fallback names are sent.
+5. ~~**Alternatives v2**~~ **Done (31 Oct), except meaning-based matching, which is built but off pending Modrinth:** reasons, ports and forks, eval set with baselines.
+6. ~~**Quality gates**~~ **Done (31 Oct):** built-output tests, Playwright, Lighthouse in the daily health check, post-deploy smoke test. Measured mobile: performance 96-100, accessibility and SEO 100.
 
 Then rollout stage 3 (badge outreach, hosting partner pitch) and 26.4 release-day prep.
 
