@@ -2,7 +2,7 @@
   import { dropCell, versionCell } from '../lib/core/status';
   import { contextFor } from '../lib/core/targets';
   import type { Drop, GameVersion, Loader, ModFile } from '../lib/core/types';
-  import { DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, fmtDownloads, modrinthUrl } from '../lib/ui/status';
+  import { ALT_REASON, DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, altNeedsCaveat, fmtDownloads, modrinthUrl } from '../lib/ui/status';
 
   let {
     mod,
@@ -75,9 +75,9 @@
         </table>
         {#if alts.length}
           <p class="small">
-            {alts.some((a) => a.curated) ? 'Known replacements' : `Similar mods ready for ${latest.id}`}:
-            {#each alts as a, i}{i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? titles[a.slug] ?? a.slug}</a>{/each}
-            {#if !alts.some((a) => a.curated)}<span class="muted"> (similar purpose; check features before switching)</span>{/if}
+            Possible replacements ready for {latest.id}:
+            {#each alts as a, i}{i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? titles[a.slug] ?? a.slug}</a> <span class="muted">({a.reason ? ALT_REASON[a.reason] : a.curated ? ALT_REASON.curated : ALT_REASON.similar})</span>{/each}
+            {#if altNeedsCaveat(alts)}<span class="muted"> Check features before switching.</span>{/if}
           </p>
         {/if}
       </section>

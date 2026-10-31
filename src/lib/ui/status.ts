@@ -20,6 +20,17 @@ export const ENV: Record<Env, string> = {
   unknown: 'Unknown side (treated as both)',
 };
 
+export const ALT_REASON = {
+  curated: 'known replacement',
+  port: 'same mod, separate release',
+  fork: 'fork or continuation',
+  rival: 'does a similar job (the authors mark them incompatible)',
+  similar: 'similar purpose',
+} as const;
+
+/** Guessed suggestions get a warning; hand-checked ones and direct continuations don't. */
+export const altNeedsCaveat = (alts: { curated: boolean; reason?: string }[]) => alts.some((a) => !a.curated && a.reason !== 'port' && a.reason !== 'fork');
+
 export const LOADER_LABEL = { fabric: 'Fabric', neoforge: 'NeoForge', forge: 'Forge' } as const;
 
 export const DECLARED_NOTE =

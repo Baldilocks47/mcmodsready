@@ -48,14 +48,25 @@ export default {
   },
 };
 
+const DATA_TYPES: Record<string, string> = {
+  json: 'application/json; charset=utf-8',
+  webp: 'image/webp',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+};
+
 async function serveData(req: Request, url: URL, env: Env): Promise<Response> {
   const key = url.pathname.slice(1); // "data/meta.json"
-  if (!/^data\/[a-z0-9._/-]+\.json$/i.test(key) || key.includes('..')) return new Response('Bad path', { status: 400 });
+  const type = DATA_TYPES[key.slice(key.lastIndexOf('.') + 1).toLowerCase()];
+  if (!type || !/^data\/[a-z0-9._/-]+$/i.test(key) || key.includes('..')) return new Response('Bad path', { status: 400 });
   const obj = await env.DATA.get(key);
   // Before the first pipeline publish, fall back to any data bundled with the site.
   if (!obj) return env.ASSETS.fetch(req);
   const headers = new Headers({
-    'content-type': 'application/json; charset=utf-8',
+    'content-type': type,
     // summary files (meta, matrix, stats, feed) change often on release day; per-mod (m/) and per-version (v/) files less so
     'cache-control': /^data\/(m|v)\//.test(key) ? 'public, max-age=900' : 'public, max-age=120',
     etag: obj.httpEtag,

@@ -65,6 +65,8 @@ export interface ModProject {
   server_side: string;
   environment?: string[];
   updated: string;
+  /** Modrinth username, from search hits */
+  author?: string;
 }
 
 /**
@@ -89,6 +91,8 @@ export interface AltRef {
   slug: string;
   title?: string;
   curated: boolean;
+  /** why it's suggested */
+  reason?: 'curated' | 'port' | 'fork' | 'rival' | 'similar';
   note?: string;
 }
 
@@ -103,6 +107,7 @@ export interface ModFile {
   env: Env;
   categories: string[];
   updated: string;
+  author?: string;
   loaders: Partial<Record<Loader, LoaderSupport>>;
   /** alternatives per loader per drop id (precomputed for tracked mods only) */
   alts?: Partial<Record<Loader, Record<string, AltRef[]>>>;

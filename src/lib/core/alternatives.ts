@@ -19,12 +19,80 @@ export interface Override {
   note?: string;
 }
 
+/** Why something is suggested; shown to the user. */
+export type AltReason = 'curated' | 'port' | 'fork' | 'rival' | 'similar';
+/** A mod that is the same project or a continuation of it, not merely similar. */
+export type Relation = 'port' | 'fork';
+
 export interface Alternative {
   slug: string;
   title: string;
   score: number;
   curated: boolean;
+  reason: AltReason;
   note?: string;
+}
+
+const LOADER_WORDS = /\b(fabric|forge|neoforge|quilt|port|ported|edition|mod|for|the)\b/g;
+const SUCCESSOR_WORDS = /\b(reloaded|continued|continuation|fork|forked|reforged|refabricated|redux|renewed|revived|updated|unofficial|community|rewritten|remastered)\b/g;
+const squash = (s: string) => s.replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** A title reduced to what identifies the project: "Sodium (Fabric)" and "Sodium Forge" both give "sodium". */
+export function stemOf(title: string): string {
+  // brackets stay: "Variants (BoP)" and "Variants (OTBWG)" are different add-ons, not one mod
+  return squash(title.toLowerCase().replace(LOADER_WORDS, ' '));
+}
+
+export interface RelationInput {
+  slug: string;
+  title: string;
+  description: string;
+  author?: string;
+  /** "owner/repo" on GitHub, if known */
+  repo?: string;
+}
+
+/**
+ * For each mod, the mods that are ports or forks of it. Evidence, strongest first: GitHub says it's a
+ * fork; its description says "fork of X"; its title is X plus a word like "Reloaded"; or the same
+ * author publishes the same title separately. The same title from a different author isn't enough,
+ * because names like "Better Mobs" are common.
+ */
+export function findRelations(mods: RelationInput[], parents: Map<string, string> = new Map()): Map<string, Map<string, Relation>> {
+  const out = new Map<string, Map<string, Relation>>();
+  const add = (target: string, candidate: string, rel: Relation) => {
+    if (target === candidate) return;
+    let m = out.get(target);
+    if (!m) out.set(target, (m = new Map()));
+    if (!m.has(candidate) || rel === 'fork') m.set(candidate, rel);
+  };
+  const byStem = new Map<string, RelationInput[]>();
+  const byRepo = new Map<string, RelationInput[]>();
+  for (const m of mods) {
+    const s = stemOf(m.title);
+    if (s.length >= 4) (byStem.get(s) ?? byStem.set(s, []).get(s)!).push(m);
+    if (m.repo) (byRepo.get(m.repo.toLowerCase()) ?? byRepo.set(m.repo.toLowerCase(), []).get(m.repo.toLowerCase())!).push(m);
+  }
+  for (const m of mods) {
+    const stem = stemOf(m.title);
+    for (const o of byStem.get(stem) ?? []) if (o.slug !== m.slug && m.author && o.author === m.author) add(o.slug, m.slug, 'port');
+    const base = squash(stem.replace(SUCCESSOR_WORDS, ' '));
+    if (base !== stem && base.length >= 4) for (const o of byStem.get(base) ?? []) add(o.slug, m.slug, 'fork');
+    for (const said of m.description.matchAll(/\b(?:fork|continuation|successor|rewrite)\s+of\s+(?:the\s+)?([^.,;:!()\n]{3,40})/gi)) {
+      const words = stemOf(said[1]).split(' ');
+      // the name may be followed by more words: "a fork of Sodium by JellySquid"
+      for (let n = words.length; n > 0; n--) {
+        const hits = byStem.get(words.slice(0, n).join(' '));
+        if (hits) {
+          for (const o of hits) add(o.slug, m.slug, 'fork');
+          break;
+        }
+      }
+    }
+    const parent = m.repo && parents.get(m.repo.toLowerCase());
+    if (parent) for (const o of byRepo.get(parent.toLowerCase()) ?? []) add(o.slug, m.slug, 'fork');
+  }
+  return out;
 }
 
 /** Libraries are dependencies, not features; they can't be swapped for something "similar". */
@@ -32,6 +100,21 @@ export const NO_ALTERNATIVES_CATEGORY = 'library';
 
 /** Minimum description similarity for an algorithmic suggestion. Below this we show nothing. */
 export const MIN_TEXT_SIM = 0.2;
+
+/** The same floor for meaning-based vectors. A starting guess: calibrate against the eval set before relying on it. */
+export const MIN_VECTOR_SIM = 0.5;
+
+/** Text this close counts without a shared category: JEI and REI do the same job but are categorised differently. */
+const STRONG_TEXT_SIM = 0.4;
+
+/** Combined score a merely "similar" mod needs, tuned on the eval set (most wrong suggestions fell below it). */
+const MIN_SIMILAR_SCORE = 0.3;
+
+function cosine(a: Float32Array, b: Float32Array): number {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
 
 /** Below this many meaningful words in title + description, textual similarity is too noisy to use. */
 export const MIN_TOKENS = 5;
@@ -55,6 +138,8 @@ export class SimilarityIndex {
   /** token -> [slug, weight] postings, for fast nearest-neighbour search */
   private postings = new Map<string, [string, number][]>();
   private maxDf: number;
+  /** optional meaning-based text vectors, replacing word matching when set */
+  private vectors: Map<string, Float32Array> | null = null;
 
   constructor(docs: Pick<AltCandidate, 'slug' | 'title' | 'description' | 'categories'>[]) {
     const n = docs.length || 1;
@@ -89,8 +174,25 @@ export class SimilarityIndex {
     });
   }
 
+  /** Use meaning-based vectors (unit length) for text similarity. */
+  useVectors(vectors: Map<string, Float32Array>) {
+    this.vectors = vectors;
+  }
+
+  get minText(): number {
+    return this.vectors ? MIN_VECTOR_SIM : MIN_TEXT_SIM;
+  }
+
   /** The k most textually similar documents (approximate: ignores very common tokens). */
   neighbours(slug: string, k = 40): string[] {
+    if (this.vectors) {
+      const q = this.vectors.get(slug);
+      if (q) {
+        const scored: [string, number][] = [];
+        for (const [other, v] of this.vectors) if (other !== slug) scored.push([other, cosine(q, v)]);
+        return scored.sort((a, b) => b[1] - a[1]).slice(0, k).map(([s]) => s);
+      }
+    }
     const v = this.vecs.get(slug);
     if (!v) return [];
     const acc = new Map<string, number>();
@@ -103,6 +205,9 @@ export class SimilarityIndex {
   }
 
   text(a: string, b: string): number {
+    const qa = this.vectors?.get(a);
+    const qb = this.vectors?.get(b);
+    if (qa && qb) return cosine(qa, qb);
     const va = this.vecs.get(a);
     const vb = this.vecs.get(b);
     if (!va || !vb) return 0;
@@ -138,9 +243,9 @@ export function sideCompatible(target: Env, candidate: Env): boolean {
 }
 
 /**
- * Rank up to `limit` alternatives. Curated overrides first; then candidates that share a
- * category and have similar descriptions, ranked by similarity with downloads and recency
- * as tie-breakers. Returns nothing for libraries.
+ * Rank up to `limit` alternatives. Curated overrides first; then ports and forks; then declared
+ * rivals and candidates that share a category and have similar descriptions, ranked by similarity
+ * with downloads and recency as tie-breakers. Returns nothing for libraries.
  */
 export function alternativesFor(
   target: Omit<AltCandidate, 'ready'>,
@@ -152,13 +257,15 @@ export function alternativesFor(
   now = Date.now(),
   /** slugs the target declares itself incompatible with (or that declare it): usually rivals doing the same job */
   rivals: Set<string> = new Set(),
+  /** ports and forks of the target */
+  relations: Map<string, Relation> = new Map(),
 ): Alternative[] {
   const bySlug = new Map(candidates.map((c) => [c.slug, c]));
   const out: Alternative[] = [];
 
   for (const o of overrides ?? []) {
     const c = bySlug.get(o.slug);
-    if (c?.ready) out.push({ slug: c.slug, title: c.title, score: Infinity, curated: true, note: o.note });
+    if (c?.ready) out.push({ slug: c.slug, title: c.title, score: Infinity, curated: true, reason: 'curated', note: o.note });
   }
   // A curated entry means we know the real replacements; don't pad with guesses.
   if (overrides || target.categories.includes(NO_ALTERNATIVES_CATEGORY)) return out.slice(0, limit);
@@ -183,15 +290,21 @@ export function alternativesFor(
       const ageDays = (now - Date.parse(c.updated)) / 86_400_000;
       const recency = Math.max(0, 1 - ageDays / 365);
       const rival = rivals.has(c.slug) ? 0.5 : 0;
-      return { c, cat, text, rival, score: text * 0.6 + cat * 0.4 + rival + dl * 0.05 + recency * 0.02 };
+      const related = relations.get(c.slug);
+      return { c, cat, text, rival, related, score: (related ? 2 : 0) + text * 0.6 + cat * 0.4 + rival + dl * 0.05 + recency * 0.02 };
     })
     // a declared rival only needs one corroborating signal: a shared category or some textual overlap
-    .filter((x) => (!thin && x.cat > 0 && x.text >= MIN_TEXT_SIM) || (x.rival && (x.cat > 0 || x.text >= MIN_TEXT_SIM / 2)))
+    .filter(
+      (x) =>
+        x.related ||
+        (!thin && x.score >= MIN_SIMILAR_SCORE && ((x.cat > 0 && x.text >= index.minText) || x.text >= STRONG_TEXT_SIM)) ||
+        (x.rival && (x.cat > 0 || x.text >= index.minText / 2)),
+    )
     .sort((a, b) => b.score - a.score);
 
-  for (const { c, score } of scored) {
+  for (const { c, score, related, rival } of scored) {
     if (out.length >= limit) break;
-    out.push({ slug: c.slug, title: c.title, score, curated: false });
+    out.push({ slug: c.slug, title: c.title, score, curated: false, reason: related ?? (rival ? 'rival' : 'similar') });
   }
   return out.slice(0, limit);
 }

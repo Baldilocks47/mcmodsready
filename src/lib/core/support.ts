@@ -67,6 +67,7 @@ export function projectFromHit(h: {
   environment?: string[] | string;
   date_modified: string;
   project_type: string;
+  author?: string;
 }): ModProject {
   const loaders = h.categories.filter((c) => (LOADERS as string[]).includes(c) || c === 'quilt');
   return {
@@ -83,6 +84,7 @@ export function projectFromHit(h: {
     server_side: h.server_side,
     environment: typeof h.environment === 'string' ? [h.environment] : h.environment,
     updated: h.date_modified,
+    author: h.author,
   };
 }
 
@@ -102,6 +104,7 @@ export function deriveModFile(p: ModProject, versions: ModVersion[]): ModFile {
     env: envOf(p),
     categories: p.categories.filter((c) => !(LOADERS as string[]).includes(c)),
     updated: p.updated,
+    ...(p.author ? { author: p.author } : {}),
     loaders,
   };
 }

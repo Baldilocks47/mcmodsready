@@ -62,6 +62,7 @@ export interface SearchHit {
   server_side: string;
   environment?: string[] | string;
   date_modified: string;
+  author?: string;
 }
 
 /** All mods for a loader with at least `minDownloads`, most downloaded first (capped at `max`). */

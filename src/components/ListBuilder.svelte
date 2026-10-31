@@ -7,7 +7,7 @@
   import { summariseImport } from '../lib/core/import';
   import { loadMods, resolveNames, searchMods, type SearchResult } from '../lib/ui/data';
   import { importFiles } from '../lib/ui/import';
-  import { DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, modrinthUrl } from '../lib/ui/status';
+  import { ALT_REASON, DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, altNeedsCaveat, modrinthUrl } from '../lib/ui/status';
   import Chip from './Chip.svelte';
   import Ring from './Ring.svelte';
   import TargetPicker from './TargetPicker.svelte';
@@ -345,11 +345,11 @@
                   </div>
                   {#if alts.length}
                     <div class="small alts">
-                      {alts.some((a) => a.curated) ? 'Known replacements:' : 'Similar mods that are ready:'}
+                      Possible replacements that are ready:
                       {#each alts as a, i}
-                        {i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? bySlug.get(a.slug)?.title ?? a.slug}</a>
+                        {i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? bySlug.get(a.slug)?.title ?? a.slug}</a> <span class="muted">({a.reason ? ALT_REASON[a.reason] : a.curated ? ALT_REASON.curated : ALT_REASON.similar})</span>
                       {/each}
-                      {#if !alts.some((a) => a.curated)}<span class="muted">(similar purpose; check features before switching)</span>{/if}
+                      {#if altNeedsCaveat(alts)}<span class="muted"> Check features before switching.</span>{/if}
                     </div>
                   {/if}
                 </li>

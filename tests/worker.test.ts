@@ -1,6 +1,6 @@
 // Release-day behaviour of the Worker cron, which can't be exercised for real until a drop ships.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkManifest, type Env } from '../worker/src/index';
+import worker, { checkManifest, type Env } from '../worker/src/index';
 
 const HOUR = 3600_000;
 const NOW = Date.parse('2026-12-15T12:00:00Z');
@@ -97,5 +97,17 @@ describe('manifest cron', () => {
     );
     await expect(checkManifest(t.env)).rejects.toThrow();
     expect(t.saved().release).toBe('26.3');
+  });
+});
+
+describe('/data route', () => {
+  const env = { DATA: { get: async () => ({ body: 'x', httpEtag: '"e"' }) }, ASSETS: { fetch: async () => new Response('asset') } } as unknown as Env;
+  const get = (path: string) => worker.fetch(new Request('https://mcmodsready.com' + path), env, {} as never);
+
+  it('serves JSON and icons with the right types, and refuses anything else', async () => {
+    expect((await get('/data/meta.json')).headers.get('content-type')).toContain('application/json');
+    expect((await get('/data/i/AANobbMI.webp')).headers.get('content-type')).toBe('image/webp');
+    expect((await get('/data/secret.txt')).status).toBe(400);
+    expect((await get('/data/..%2Fx.json')).status).toBe(400);
   });
 });

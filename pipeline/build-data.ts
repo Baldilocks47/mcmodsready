@@ -7,7 +7,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { alternativesFor, SimilarityIndex, type AltCandidate } from '../src/lib/core/alternatives';
+import { alternativesFor, findRelations, SimilarityIndex, type AltCandidate } from '../src/lib/core/alternatives';
 import { dropCell, median, type StatusContext } from '../src/lib/core/status';
 import { deriveModFile, projectFromHit } from '../src/lib/core/support';
 import { LOADERS, type Cell, type Loader, type ModFile, type ModProject, type ModVersion } from '../src/lib/core/types';
@@ -15,7 +15,10 @@ import { buildDrops, buildGameVersions } from '../src/lib/core/versions';
 import type { FeedEvent, MatrixFile, MatrixMod, MetaFile, PageRef, StatsFile, VersionShard } from '../src/lib/data-schema';
 import { fetchManifest } from './mojang';
 import { modsForLoader, pool, versions, type SearchHit } from './modrinth';
+import { embedMods } from './embed';
+import { selfHostIcons } from './icons';
 import { loadOverrides } from './overrides';
+import { loadRepos } from './sources';
 
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ''), process.argv[i + 1]);
@@ -83,6 +86,7 @@ async function main() {
     log(`${loader}: ${hits.length} mods with >= ${MIN_DL} downloads`);
   }
   const projs: ModProject[] = [...hitsById.values()].map(projectFromHit).sort((a, b) => b.downloads - a.downloads);
+  const authors = new Map(projs.map((p) => [p.id, p.author]));
   log(`${projs.length} unique mods`);
 
   // 2. Support maps, cached by Modrinth's modified date. Most-downloaded first so a capped run covers the important ones.
@@ -113,6 +117,10 @@ async function main() {
   log(`versions: ${fetched} fetched, ${skipped} deferred, ${mods.length} mods with data`);
 
   const overrides = await loadOverrides();
+  const { repos, parents } = await loadRepos(mods.map((m) => m.id));
+  log(`sources: ${repos.size} GitHub repos known, ${parents.size} are forks`);
+  // Off unless ALT_EMBEDDINGS=1, pending Modrinth's answer on their AI clause.
+  const vectors = process.env.ALT_EMBEDDINGS === '1' ? await embedMods(mods) : null;
   const now = Date.now();
   const generatedAt = new Date(now).toISOString();
   const bySlug = new Map(mods.map((m) => [m.slug, m]));
@@ -126,6 +134,11 @@ async function main() {
 
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
+  // Off unless SELF_HOST_ICONS=1, pending Modrinth's answer on in-line linking.
+  if (process.env.SELF_HOST_ICONS === '1') {
+    const r = await selfHostIcons(mods, OUT);
+    log(`icons: ${r.hosted} self-hosted, ${r.fetched} newly fetched`);
+  }
 
   const feed: FeedEvent[] = [];
   const tracked = {} as Record<Loader, number>;
@@ -147,6 +160,11 @@ async function main() {
 
     // 3. Alternatives: textual neighbours + declared rivals, filtered to ready + side-compatible.
     const index = new SimilarityIndex(lm);
+    if (vectors) index.useVectors(new Map(lm.flatMap((m) => (vectors.has(m.id) ? [[m.slug, vectors.get(m.id)!] as const] : []))));
+    const relations = findRelations(
+      lm.map((m) => ({ slug: m.slug, title: m.title, description: m.description, author: authors.get(m.id), repo: repos.get(m.id) })),
+      parents,
+    );
     const rivalsOf = new Map<string, Set<string>>();
     for (const m of lm) {
       for (const otherId of m.loaders[loader]!.incompat) {
@@ -158,7 +176,8 @@ async function main() {
     }
     for (const m of lm) {
       const rivals = rivalsOf.get(m.slug) ?? new Set<string>();
-      const pool = [...new Set([...index.neighbours(m.slug, 40), ...rivals, ...(overrides.get(m.slug) ?? []).map((o) => o.slug)])]
+      const related = relations.get(m.slug) ?? new Map();
+      const pool = [...new Set([...index.neighbours(m.slug, 40), ...rivals, ...related.keys(), ...(overrides.get(m.slug) ?? []).map((o) => o.slug)])]
         .map((s) => bySlug.get(s))
         .filter((x): x is ModFile => !!x && !!x.loaders[loader]);
       for (const d of drops) {
@@ -168,10 +187,10 @@ async function main() {
           const cs = cells.get(c.id)![d.id].status;
           return { ...c, ready: cs === 'ready' || (d.upcoming && cs === 'snapshot') };
         });
-        const alts = alternativesFor(m, candidates, index, overrides.get(m.slug), 3, now, rivals);
+        const alts = alternativesFor(m, candidates, index, overrides.get(m.slug), 3, now, rivals, related);
         if (alts.length) {
           m.alts ??= {};
-          (m.alts[loader] ??= {})[d.id] = alts.map((a) => ({ slug: a.slug, title: a.title, curated: a.curated, ...(a.note ? { note: a.note } : {}) }));
+          (m.alts[loader] ??= {})[d.id] = alts.map((a) => ({ slug: a.slug, title: a.title, curated: a.curated, reason: a.reason, ...(a.note ? { note: a.note } : {}) }));
         }
       }
     }

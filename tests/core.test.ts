@@ -193,7 +193,7 @@ describe('alternatives', () => {
     expect(alternativesFor(cands[0], cands, index, undefined, 3, NOW).map((a) => a.slug)).toEqual(['minimap-b']);
   });
   it('curated overrides win and suppress guesses', () => {
-    expect(alternativesFor(cands[0], cands, index, [{ slug: 'zoom', note: 'test' }], 3, NOW)).toEqual([{ slug: 'zoom', title: 'Zoom', score: Infinity, curated: true, note: 'test' }]);
+    expect(alternativesFor(cands[0], cands, index, [{ slug: 'zoom', note: 'test' }], 3, NOW)).toEqual([{ slug: 'zoom', title: 'Zoom', score: Infinity, curated: true, reason: 'curated', note: 'test' }]);
   });
   it('libraries get no algorithmic alternatives', () => {
     expect(alternativesFor(cands[4], cands, index, undefined, 3, NOW)).toEqual([]);
@@ -330,5 +330,62 @@ describe('badges', async () => {
     expect(svg).toContain('<title>A &lt;b&gt; &amp; &quot;c&quot;</title>');
     expect(svg).toContain('>ready<');
     expect(svg).not.toContain('<b>');
+  });
+});
+
+describe('ports and forks', () => {
+  it('reduces titles to what identifies the project', async () => {
+    const { stemOf } = await import('../src/lib/core/alternatives');
+    expect(stemOf('Sodium (Fabric)')).toBe('sodium');
+    expect(stemOf('Sodium for Forge')).toBe('sodium');
+    expect(stemOf('The Twilight Forest')).toBe('twilight forest');
+  });
+  it('finds forks and ports, but not just a shared name from a different author', async () => {
+    const { findRelations } = await import('../src/lib/core/alternatives');
+    const r = findRelations(
+      [
+        { slug: 'ebe', title: 'Enhanced Block Entities', description: 'Faster chests', author: 'a', repo: 'a/ebe' },
+        { slug: 'ebe-reloaded', title: 'Enhanced Block Entities Reloaded', description: 'x', author: 'b' },
+        { slug: 'ebe-gh', title: 'Quick Chests', description: 'y', author: 'c', repo: 'c/quick' },
+        { slug: 'said', title: 'Chest Thing', description: 'A fork of Enhanced Block Entities by a friend.', author: 'd' },
+        { slug: 'mobs-a', title: 'Better Mobs', description: 'x', author: 'e' },
+        { slug: 'mobs-b', title: 'Better Mobs', description: 'x', author: 'f' },
+        { slug: 'same-fabric', title: 'Cool Thing Fabric', description: 'x', author: 'g' },
+        { slug: 'same-forge', title: 'Cool Thing Forge', description: 'x', author: 'g' },
+      ],
+      new Map([['c/quick', 'a/ebe']]),
+    );
+    expect(Object.fromEntries(r.get('ebe')!)).toEqual({ 'ebe-reloaded': 'fork', 'ebe-gh': 'fork', said: 'fork' });
+    expect(r.has('mobs-a')).toBe(false);
+    expect(r.get('same-forge')!.get('same-fabric')).toBe('port');
+  });
+  it('ranks ports and forks above similar mods, even with thin text', () => {
+    const base = { downloads: 1000, updated: '2026-09-01T00:00:00Z', env: 'client' as const, categories: ['utility'] };
+    const c: AltCandidate[] = [
+      { ...base, slug: 't', title: 'Thing', description: 'Does it', ready: false },
+      { ...base, slug: 't2', title: 'Thing Reloaded', description: 'Unrelated words entirely', ready: true },
+    ];
+    const a = alternativesFor(c[0], c, new SimilarityIndex(c), undefined, 3, NOW, new Set(), new Map([['t2', 'fork']]));
+    expect(a.map((x) => [x.slug, x.reason])).toEqual([['t2', 'fork']]);
+  });
+  it('uses meaning-based vectors when given them, with their own threshold', () => {
+    const base = { downloads: 1000, updated: '2026-09-01T00:00:00Z', env: 'client' as const, categories: ['utility'] };
+    const c: AltCandidate[] = [
+      { ...base, slug: 'voice', title: 'Proximity talk', description: 'Speak with nearby players in the game world', ready: false },
+      { ...base, slug: 'plasmo', title: 'Plasmo', description: 'Microphone audio between people close together', ready: true },
+      { ...base, slug: 'chat', title: 'Chat logs', description: 'Keeps text message history longer for players', ready: true },
+    ];
+    const idx = new SimilarityIndex(c);
+    expect(alternativesFor(c[0], c, idx, undefined, 3, NOW).map((a) => a.slug)).not.toContain('plasmo');
+    idx.useVectors(new Map([['voice', Float32Array.of(1, 0)], ['plasmo', Float32Array.of(0.9, 0.436)], ['chat', Float32Array.of(0.1, 0.995)]]));
+    expect(idx.neighbours('voice', 1)).toEqual(['plasmo']);
+    expect(alternativesFor(c[0], c, idx, undefined, 3, NOW).map((a) => a.slug)).toEqual(['plasmo']);
+  });
+});
+
+describe('embedding helpers', async () => {
+  const { plainText } = await import('../pipeline/embed');
+  it('reduces a project page to plain words', () => {
+    expect(plainText('# Title\n![img](x.png) **Bold** [link](http://a.b) <b>h</b>\n```js\ncode()\n```\nhttps://x.y end')).toBe('Title Bold link h end');
   });
 });

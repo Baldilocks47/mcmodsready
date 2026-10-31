@@ -65,8 +65,17 @@ jobs:
 
       # A cold cache needs ~16k version lists (~1h). Cap per run so a first backfill spans two runs
       # comfortably inside the timeout; mods not fetched yet are looked up live by the site meanwhile.
+      # Switches pending Modrinth's reply (see docs/build-designs.md): repo variables ALT_EMBEDDINGS and SELF_HOST_ICONS.
+      - name: Install the embedding model runtime
+        if: vars.ALT_EMBEDDINGS == '1'
+        run: npm install --no-save @huggingface/transformers
+
       - name: Build data
         run: npx tsx pipeline/build-data.ts --max-fetch 12000 --out out/data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ALT_EMBEDDINGS: ${{ vars.ALT_EMBEDDINGS }}
+          SELF_HOST_ICONS: ${{ vars.SELF_HOST_ICONS }}
 
       - name: Save pipeline cache
         if: always()

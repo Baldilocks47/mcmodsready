@@ -1,5 +1,14 @@
 # Build designs: what's next
 
+> **Status, 31 Oct 2026:** items 1-5 are built. Two parts are switched OFF until Modrinth replies to the email sent in Oct 2026:
+>
+> | Switch (GitHub repository variable) | Turns on | Set to `1` when |
+> |---|---|---|
+> | `ALT_EMBEDDINGS` | Meaning-based matching (`pipeline/embed.ts`) | Modrinth confirms a pre-trained model is fine. Then measure with the eval set and calibrate `MIN_VECTOR_SIM` before trusting it |
+> | `SELF_HOST_ICONS` | Self-hosted icons (`pipeline/icons.ts`) | Modrinth prefers it over loading from their CDN |
+>
+> First-run note: `ALT_EMBEDDINGS` has never run on real mod data. The sections below are kept as the design record.
+
 Pick-up notes for future work. Each item says why it matters, how to build it against the current code, what to test, and when it's done. Product decisions and history live in [the spec](../minecraft-readiness-tracker-spec.md) (section 15); architecture and data files are in the [README](../README.md).
 
 Written 31 Oct 2026. Items marked **[verify]** rest on assumptions to check first.
