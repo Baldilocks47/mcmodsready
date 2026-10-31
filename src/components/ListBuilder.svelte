@@ -294,7 +294,7 @@
       {#if !entries.length && !pending}
         <div class="card empty">
           <h2>Add your mods to see if they're ready for {target.label}</h2>
-          <p class="muted">Search any {LOADER_LABEL[list.loader]} mod on Modrinth, or paste your list.</p>
+          <p class="muted">Search any {LOADER_LABEL[list.loader]} mod on Modrinth, paste your list, or drop a modpack or your mods folder.</p>
         </div>
       {:else}
         <div class="card rings">

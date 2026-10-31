@@ -247,3 +247,6 @@ input, select, textarea {
 @media (prefers-reduced-motion: reduce) {
   button:active, .btn:active { transform: none; }
 }
+
+/* Pages whose content loads in the browser would otherwise push the footer down (layout shift). */
+main.wrap { min-height: 100vh; }
