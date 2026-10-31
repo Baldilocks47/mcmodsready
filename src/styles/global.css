@@ -11,8 +11,8 @@
   --bevel-hi: rgb(255 255 255 / 0.75);
   --bevel-lo: rgb(0 0 0 / 0.14);
   --text: #221f1a;
-  --muted: #6b6457;
-  --accent: #3f7f22;
+  --muted: #5a5448;
+  --accent: #2f6a16;
   --accent-ink: #ffffff;
   --grass: #5d9e33;
   --grass-dark: #447a24;
@@ -28,9 +28,12 @@
   --s-snap-bg: #c4eef1;
   --s-not: #9c2117;
   --s-not-bg: #f8d3cf;
-  --s-na: #69645b;
+  --s-na: #57524a;
   --s-na-bg: #e6e0d4;
 
+  /* white text needs a darker green than the grass strip */
+  --btn-green: #3f7a22;
+  --btn-green-dark: #2f5e18;
   --radius: 3px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --pixel: 'Tiny5', var(--font);
@@ -158,13 +161,13 @@ button, .btn {
 button:hover, .btn:hover { filter: brightness(1.06); }
 button:active, .btn:active { box-shadow: inset -2px -2px 0 var(--bevel-hi), inset 2px 3px 0 var(--bevel-lo); transform: translateY(1px); }
 button.primary, .btn.primary {
-  background: var(--grass);
+  background: var(--btn-green);
   color: #fff;
   font-family: var(--pixel);
   font-weight: 400;
   font-size: 16px;
   text-shadow: 0 2px 0 rgb(0 0 0 / 0.35);
-  box-shadow: inset 2px 2px 0 rgb(255 255 255 / 0.3), inset -2px -3px 0 var(--grass-dark);
+  box-shadow: inset 2px 2px 0 rgb(255 255 255 / 0.3), inset -2px -3px 0 var(--btn-green-dark);
 }
 button:disabled, .btn[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; transform: none; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -181,10 +184,10 @@ input, select, textarea {
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tabs button { font-family: var(--pixel); font-weight: 400; font-size: 16px; }
 .tabs button[aria-pressed='true'] {
-  background: var(--grass);
+  background: var(--btn-green);
   color: #fff;
   text-shadow: 0 2px 0 rgb(0 0 0 / 0.3);
-  box-shadow: inset -2px -2px 0 rgb(255 255 255 / 0.2), inset 2px 3px 0 var(--grass-dark);
+  box-shadow: inset -2px -2px 0 rgb(255 255 255 / 0.2), inset 2px 3px 0 var(--btn-green-dark);
 }
 
 /* Status chips: icon + text + ore colour */

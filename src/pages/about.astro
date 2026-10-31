@@ -55,7 +55,9 @@ const m = meta();
       No accounts, no cookies, no ad trackers. Your lists are stored in your own browser. Share links carry the list in the part
       of the URL after <code>#</code>, which browsers never send to our server. We use cookieless, aggregate page-view counts only.
       Mod icons load from Modrinth's CDN, and when you search for a mod or add a less popular one, your browser asks
-      Modrinth's public API directly (Modrinth sees that request, just as if you browsed their site).
+      Modrinth's public API directly (Modrinth sees that request, just as if you browsed their site). If you import a modpack or
+      jars, they're read in your browser and never uploaded: only their fingerprints (SHA-1 hashes) go to Modrinth, plus a mod's
+      name if its fingerprint isn't found.
     </p>
 
     <h2>Credits</h2>

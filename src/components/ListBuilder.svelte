@@ -4,7 +4,9 @@
   import { decodeList, encodeList, migrateList, parsePasted, type ModList } from '../lib/core/share';
   import { altDrop, cellAt, defaultTarget, depsAt, isUpcoming, parseTarget } from '../lib/core/targets';
   import type { Drop, GameVersion, Loader, ModFile, Status } from '../lib/core/types';
+  import { summariseImport } from '../lib/core/import';
   import { loadMods, resolveNames, searchMods, type SearchResult } from '../lib/ui/data';
+  import { importFiles } from '../lib/ui/import';
   import { DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, modrinthUrl } from '../lib/ui/status';
   import Chip from './Chip.svelte';
   import Ring from './Ring.svelte';
@@ -180,6 +182,32 @@
       importMsg = "Couldn't reach Modrinth. Try again in a moment.";
     }
   }
+  let dragging = $state(false);
+  let importing = $state(false);
+  async function onFiles(files: File[]) {
+    if (!list || !files.length || importing) return;
+    importing = true;
+    importMsg = 'Reading files…';
+    try {
+      const r = await importFiles(files, list.loader, (m) => (importMsg = m));
+      update({
+        mods: [...new Set([...list.mods, ...r.ids])],
+        ...(r.loader ? { loader: r.loader } : {}),
+        ...(r.name && !list.mods.length ? { name: r.name } : {}),
+      });
+      importMsg = summariseImport({ found: r.ids.length, byName: r.byName, missing: r.missing, skipped: r.skipped }) + (r.gameVersion ? ` This pack is on ${r.gameVersion}.` : '');
+    } catch (e) {
+      importMsg = e instanceof Error ? e.message : "Couldn't read those files.";
+    } finally {
+      importing = false;
+    }
+  }
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    dragging = false;
+    onFiles([...(e.dataTransfer?.files ?? [])]);
+  }
+
   async function share() {
     if (!list) return;
     const url = `${location.origin}/list#${encodeList(list)}`;
@@ -246,6 +274,11 @@
           </ul>
         {/if}
       </div>
+      <label class="drop" class:dragging ondragover={(e) => { e.preventDefault(); dragging = true; }} ondragleave={() => (dragging = false)} ondrop={onDrop}>
+        <strong>Drop a .mrpack or your mods folder's jars</strong>
+        <span class="small muted">Or click to choose. Your files stay on your device: only their fingerprints are checked.</span>
+        <input class="sr-only" type="file" multiple accept=".mrpack,.jar" disabled={importing} onchange={(e) => { onFiles([...(e.currentTarget.files ?? [])]); e.currentTarget.value = ''; }} />
+      </label>
       <details>
         <summary>Paste a list</summary>
         <p class="small muted">One per line or comma-separated: Modrinth links, slugs, or mod names.</p>
@@ -357,6 +390,8 @@
   .setup label.check { flex-direction: row; align-items: center; }
   .row { display: flex; gap: 6px; }
   .row select { flex: 1; min-width: 0; }
+  .drop { padding: 12px; text-align: center; border: 2px dashed var(--border); border-radius: 3px; cursor: pointer; }
+  .drop.dragging, .drop:hover, .drop:focus-within { border-color: var(--accent); background: var(--surface-2); }
   .add { position: relative; display: flex; flex-direction: column; gap: 4px; font-size: 0.875rem; }
   .sugg { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.15); }
   .sugg button { width: 100%; border: 0; justify-content: flex-start; }

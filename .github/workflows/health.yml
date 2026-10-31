@@ -22,6 +22,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsx pipeline/smoke.ts
+      - name: Lighthouse (alerts below 80; the target is 90)
+        run: |
+          npx playwright install --with-deps chromium
+          npx tsx pipeline/perf.ts --min 80
       - name: Open an issue on failure
         if: failure()
         env:

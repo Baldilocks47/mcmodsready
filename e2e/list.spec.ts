@@ -92,3 +92,34 @@ test('the report chart renders with a label per loader', async ({ page }) => {
   await expect(page.locator('.viz-root svg')).toBeVisible();
   for (const name of ['Fabric', 'NeoForge', 'Forge']) await expect(page.locator('.viz-root .dl', { hasText: new RegExp(`^${name} `) })).toBeVisible();
 });
+
+test('importing a modpack: files stay local, only hashes are sent', async ({ page }) => {
+  const sent: string[] = [];
+  await page.route('https://api.modrinth.com/v2/version_files', async (r) => {
+    const body = r.request().postData() ?? '';
+    sent.push(body);
+    const { hashes } = JSON.parse(body) as { hashes: string[] };
+    await r.fulfill({ json: { [hashes[0]]: { project_id: 'AANobbMI' } } });
+  });
+  await page.goto('/list');
+  const { zipSync, strToU8 } = await import('fflate');
+  const index = { name: 'Test Pack', dependencies: { minecraft: '1.21.1', 'fabric-loader': '0.16' }, files: [{ path: 'mods/a.jar', hashes: { sha1: 'a'.repeat(40) } }, { path: 'mods/b.jar', hashes: { sha1: 'b'.repeat(40) } }] };
+  const buffer = Buffer.from(zipSync({ 'modrinth.index.json': strToU8(JSON.stringify(index)) }));
+  await page.locator('input[type=file]').setInputFiles({ name: 'test.mrpack', mimeType: 'application/zip', buffer });
+  await expect(page.locator('.mods li').filter({ hasText: 'Sodium' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Added 1 mod' })).toContainText('1 file(s) listed in the pack');
+  expect(sent).toHaveLength(1);
+  expect(JSON.parse(sent[0])).toEqual({ hashes: ['a'.repeat(40), 'b'.repeat(40)], algorithm: 'sha1' });
+});
+
+test('dropping a jar hashes it in the browser', async ({ page }) => {
+  let hash = '';
+  await page.route('https://api.modrinth.com/v2/version_files', async (r) => {
+    hash = (JSON.parse(r.request().postData()!) as { hashes: string[] }).hashes[0];
+    await r.fulfill({ json: { [hash]: { project_id: 'AANobbMI' } } });
+  });
+  await page.goto('/list');
+  await page.locator('input[type=file]').setInputFiles({ name: 'x.jar', mimeType: 'application/java-archive', buffer: Buffer.from('hello') });
+  await expect(page.locator('.mods li').filter({ hasText: 'Sodium' })).toBeVisible();
+  expect(hash).toBe('aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d'); // sha1("hello")
+});
