@@ -119,7 +119,7 @@ async function main() {
   const overrides = await loadOverrides();
   const { repos, parents } = await loadRepos(mods.map((m) => m.id));
   log(`sources: ${repos.size} GitHub repos known, ${parents.size} are forks`);
-  // Off unless ALT_EMBEDDINGS=1, pending Modrinth's answer on their AI clause.
+  // On in the data workflow; local builds use word matching unless ALT_EMBEDDINGS=1.
   const vectors = process.env.ALT_EMBEDDINGS === '1' ? await embedMods(mods) : null;
   const now = Date.now();
   const generatedAt = new Date(now).toISOString();
@@ -134,7 +134,7 @@ async function main() {
 
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
-  // Off unless SELF_HOST_ICONS=1, pending Modrinth's answer on in-line linking.
+  // Off unless SELF_HOST_ICONS=1: kept in case Modrinth ever asks us to stop loading icons from their CDN.
   if (process.env.SELF_HOST_ICONS === '1') {
     const r = await selfHostIcons(mods, OUT);
     log(`icons: ${r.hosted} self-hosted, ${r.fetched} newly fetched`);
@@ -175,6 +175,8 @@ async function main() {
       }
     }
     for (const m of lm) {
+      // Nothing to suggest for this mod on any drop: skip the neighbour search.
+      if (drops.every((d) => ['ready', 'not_applicable'].includes(cells.get(m.id)![d.id].status))) continue;
       const rivals = rivalsOf.get(m.slug) ?? new Set<string>();
       const related = relations.get(m.slug) ?? new Map();
       const pool = [...new Set([...index.neighbours(m.slug, 40), ...rivals, ...related.keys(), ...(overrides.get(m.slug) ?? []).map((o) => o.slug)])]

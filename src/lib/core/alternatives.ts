@@ -101,14 +101,19 @@ export const NO_ALTERNATIVES_CATEGORY = 'library';
 /** Minimum description similarity for an algorithmic suggestion. Below this we show nothing. */
 export const MIN_TEXT_SIM = 0.2;
 
-/** The same floor for meaning-based vectors. A starting guess: calibrate against the eval set before relying on it. */
-export const MIN_VECTOR_SIM = 0.5;
+export interface Floors {
+  /** text similarity needed alongside a shared category */
+  minText: number;
+  /** text this close counts without a shared category: JEI and REI do the same job but are categorised differently */
+  strongText: number;
+  /** combined score a merely "similar" mod needs, tuned on the eval set (most wrong suggestions fell below it) */
+  minScore: number;
+}
 
-/** Text this close counts without a shared category: JEI and REI do the same job but are categorised differently. */
-const STRONG_TEXT_SIM = 0.4;
+const TEXT_FLOORS: Floors = { minText: MIN_TEXT_SIM, strongText: 0.4, minScore: 0.3 };
 
-/** Combined score a merely "similar" mod needs, tuned on the eval set (most wrong suggestions fell below it). */
-const MIN_SIMILAR_SCORE = 0.3;
+/** The same floors for meaning-based vectors, calibrated on the eval set with pipeline/eval-embeddings.ts (31 Oct 2026). */
+export const VECTOR_FLOORS: Floors = { minText: 0.65, strongText: 0.65, minScore: 0.3 };
 
 function cosine(a: Float32Array, b: Float32Array): number {
   let s = 0;
@@ -140,6 +145,10 @@ export class SimilarityIndex {
   private maxDf: number;
   /** optional meaning-based text vectors, replacing word matching when set */
   private vectors: Map<string, Float32Array> | null = null;
+  private floors: Floors = TEXT_FLOORS;
+  private slugs: string[] = [];
+  private dim = 0;
+  private matrix = new Float32Array(0);
 
   constructor(docs: Pick<AltCandidate, 'slug' | 'title' | 'description' | 'categories'>[]) {
     const n = docs.length || 1;
@@ -174,13 +183,27 @@ export class SimilarityIndex {
     });
   }
 
-  /** Use meaning-based vectors (unit length) for text similarity. */
-  useVectors(vectors: Map<string, Float32Array>) {
+  /** Use meaning-based vectors (unit length) for text similarity. Their scores run higher, so they have their own floors. */
+  useVectors(vectors: Map<string, Float32Array>, floors: Floors = VECTOR_FLOORS) {
     this.vectors = vectors;
+    this.floors = floors;
+    // one flat array: scanning every mod for every mod is the slowest part of the build
+    this.slugs = [...vectors.keys()];
+    this.dim = vectors.values().next().value?.length ?? 0;
+    this.matrix = new Float32Array(this.slugs.length * this.dim);
+    this.slugs.forEach((s, i) => this.matrix.set(vectors.get(s)!, i * this.dim));
   }
 
   get minText(): number {
-    return this.vectors ? MIN_VECTOR_SIM : MIN_TEXT_SIM;
+    return this.floors.minText;
+  }
+
+  get strongText(): number {
+    return this.floors.strongText;
+  }
+
+  get minScore(): number {
+    return this.floors.minScore;
   }
 
   /** The k most textually similar documents (approximate: ignores very common tokens). */
@@ -188,8 +211,15 @@ export class SimilarityIndex {
     if (this.vectors) {
       const q = this.vectors.get(slug);
       if (q) {
+        // Anything under the floor can't be suggested on similarity, so don't sort it. Rivals and relations are added separately.
+        const { matrix, dim, slugs } = this;
+        const floor = Math.min(this.minText, this.strongText);
         const scored: [string, number][] = [];
-        for (const [other, v] of this.vectors) if (other !== slug) scored.push([other, cosine(q, v)]);
+        for (let i = 0; i < slugs.length; i++) {
+          let s = 0;
+          for (let j = 0, at = i * dim; j < dim; j++, at++) s += q[j] * matrix[at];
+          if (s >= floor && slugs[i] !== slug) scored.push([slugs[i], s]);
+        }
         return scored.sort((a, b) => b[1] - a[1]).slice(0, k).map(([s]) => s);
       }
     }
@@ -297,7 +327,7 @@ export function alternativesFor(
     .filter(
       (x) =>
         x.related ||
-        (!thin && x.score >= MIN_SIMILAR_SCORE && ((x.cat > 0 && x.text >= index.minText) || x.text >= STRONG_TEXT_SIM)) ||
+        (!thin && x.score >= index.minScore && ((x.cat > 0 && x.text >= index.minText) || x.text >= index.strongText)) ||
         (x.rival && (x.cat > 0 || x.text >= index.minText / 2)),
     )
     .sort((a, b) => b.score - a.score);

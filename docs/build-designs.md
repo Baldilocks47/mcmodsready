@@ -1,13 +1,13 @@
 # Build designs: what's next
 
-> **Status, 31 Oct 2026:** items 1-5 are built. Two parts are switched OFF until Modrinth replies to the email sent in Oct 2026:
+> **Status, 31 Oct 2026:** items 1-5 are built. Modrinth replied: they are comfortable with the project, one small affiliate link and the alternatives feature, as long as we don't spam their site, over-commercialise, or contact mod authors about badges. So:
 >
-> | Switch (GitHub repository variable) | Turns on | Set to `1` when |
-> |---|---|---|
-> | `ALT_EMBEDDINGS` | Meaning-based matching (`pipeline/embed.ts`) | Modrinth confirms a pre-trained model is fine. Then measure with the eval set and calibrate `MIN_VECTOR_SIM` before trusting it |
-> | `SELF_HOST_ICONS` | Self-hosted icons (`pipeline/icons.ts`) | Modrinth prefers it over loading from their CDN |
+> - **Meaning-based matching is on** in the data workflow. Re-measure with `pipeline/eval-embeddings.ts` before changing `VECTOR_FLOORS`.
+> - **Self-hosted icons stay off** (`SELF_HOST_ICONS`): icons keep loading from Modrinth's CDN unless they ask otherwise.
+> - **Badges are descoped:** no outreach to authors and no prompts on mod pages. The page and endpoint remain, linked only from the footer. The hands-off version is our own mod page, which already updates by itself.
+> - **Keep it small:** one affiliate link, no extra ad placements on mod pages, and only changed mods are re-fetched.
 >
-> First-run note: `ALT_EMBEDDINGS` has never run on real mod data. The sections below are kept as the design record.
+> The sections below are kept as the design record.
 >
 > Alternatives baseline on the eval set (`npx vitest run tests/alternatives-eval.test.ts`): 6 of 18 good suggestions found, 5 of 35 shown are bad. The live site also applies the curated list, which this excludes.
 >
@@ -59,7 +59,7 @@ Trigger the path by hand: delete the `manifest` key in `STATE` KV to fire `init`
 
 ### Rollout (see the spec's plan)
 
-- **Pre-release:** badge outreach to about 10 authors; send the live counter to Minecraft news writers and modding YouTubers.
+- **Pre-release:** send the live counter to Minecraft news writers and modding YouTubers.
 - **T+0:** check the 26.4 column appears within the hour (acceptance criterion 1). Post the counter.
 - **T+24h, T+7d:** status posts. **T+2–4 weeks:** adoption report post.
 

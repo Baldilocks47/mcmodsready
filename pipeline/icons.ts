@@ -1,5 +1,5 @@
 // Host copies of mod icons with our data instead of loading them from Modrinth's CDN.
-// OFF by default (SELF_HOST_ICONS=1): only needed if Modrinth prefers it (their terms mention in-line linking).
+// OFF by default (SELF_HOST_ICONS=1): kept in case Modrinth ever asks us to stop loading icons from their CDN.
 // Each icon is fetched once per URL (the URL changes when the icon does), then reused from the cache.
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';

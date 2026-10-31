@@ -1,5 +1,5 @@
 // Meaning-based text vectors for alternatives, from an existing pre-trained open model. Nothing is trained.
-// OFF by default (ALT_EMBEDDINGS=1) until Modrinth confirms this is fine under their AI clause.
+// Only runs with ALT_EMBEDDINGS=1, which the data workflow sets. Modrinth has confirmed they are fine with this feature.
 // The runtime isn't a project dependency: `npm install --no-save @huggingface/transformers` first.
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -62,7 +62,9 @@ export async function embedMods(mods: ModFile[], embed?: Embedder): Promise<Map<
       const out = await run(batch);
       batch.forEach((t, i) => (vectors[hash(t)] = round(out[i])));
     });
-    await writeFile(VECTOR_CACHE, JSON.stringify(vectors));
+    // Only keep current text, so the cache doesn't grow with every description edit.
+    const current = new Set([...text.values()].map(hash));
+    await writeFile(VECTOR_CACHE, JSON.stringify(Object.fromEntries(Object.entries(vectors).filter(([h]) => current.has(h)))));
   }
   return new Map(mods.map((m) => [m.id, Float32Array.from(vectors[hash(text.get(m.id)!)])]));
 }

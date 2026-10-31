@@ -178,11 +178,11 @@ No consent banner needed. Revisit ad networks at ~20–30k page views/month. Ana
 |---|---|---|
 | 1. Build | now → mid-Nov | MVP (done in first pass: pipeline, matrix, list, per-mod pages); infra setup; affiliate + Ko-fi applications |
 | 2. Soft launch | mid-Nov, on the 26.3 tail | Go live quietly; run unattended ≥2 weeks incl. a 26.3.x patch; data post "How long did the top 100 take to update to 26.3?" to r/fabricmc, r/feedthebeast, r/admincraft |
-| 3. Run-up | 26.4 pre-releases / RCs | Badge outreach to top-50 authors; pitch hosting partner; tell MC news creators about the live counter |
+| 3. Run-up | 26.4 pre-releases / RCs | Pitch hosting partner; tell MC news creators about the live counter |
 | 4. Release day | T+0 → T+7d | Release-day mode (automatic); posts at T+0, T+24h, T+7d |
 | 5. Afterwards | T+2–4 weeks | "26.4 adoption report"; review metrics; decide notifications tier / sponsor outreach |
 
-Metrics (all cookie-free): Cloudflare page views + referrers, `/go/` clicks, badge requests, Search Console impressions. Starting goal for the 26.4 cycle: 5k+ visits in release week, 10+ authors using badges.
+Metrics (all cookie-free): Cloudflare page views + referrers, `/go/` clicks, Search Console impressions. Starting goal for the 26.4 cycle: 5k+ visits in release week.
 
 ### Update (9 Oct 2026, later): coverage, Forge, exact versions, hosting
 
@@ -219,7 +219,7 @@ Live at https://mcmodsready.com with full automation: the Worker cron (every 10 
 5. ~~**Alternatives v2**~~ **Done (31 Oct), except meaning-based matching, which is built but off pending Modrinth:** reasons, ports and forks, eval set with baselines.
 6. ~~**Quality gates**~~ **Done (31 Oct):** built-output tests, Playwright, Lighthouse in the daily health check, post-deploy smoke test. Measured mobile: performance 96-100, accessibility and SEO 100.
 
-Then rollout stage 3 (badge outreach, hosting partner pitch) and 26.4 release-day prep.
+Then rollout stage 3 (hosting partner pitch) and 26.4 release-day prep.
 
 ### Standing decisions (Oct 2026)
 
