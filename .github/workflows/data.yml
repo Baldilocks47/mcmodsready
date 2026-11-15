@@ -2,12 +2,12 @@ name: data
 
 # Refreshes mod data, publishes changed files to R2, and (when asked) rebuilds + deploys the site.
 # Triggered by:
-#  - the nightly schedule (always rebuilds, so pre-rendered mod pages stay fresh for search)
-#  - the Cloudflare Worker cron (new release/snapshot -> rebuild; release-day refreshes -> data only)
+#  - the Cloudflare Worker cron: nightly at 03:00 UTC (always rebuilds, so pre-rendered mod pages stay
+#    fresh for search), new release/snapshot -> rebuild, release-day refreshes -> data only, and a backstop
+#    if data goes stale. GitHub's own schedule ran 4-8 hours late, so it isn't used; the health workflow
+#    still catches the Worker not triggering anything.
 #  - manual runs
 on:
-  schedule:
-    - cron: '17 3 * * *'
   repository_dispatch:
     types: [refresh-data]
   workflow_dispatch:
@@ -89,6 +89,8 @@ jobs:
         run: |
           npx tsx pipeline/stage-changed.ts out/data out/stage/data .cache/published.json
           if [ -n "$(ls -A out/stage/data)" ]; then
+            # thousands of small files: upload many at once (the default is 10)
+            aws configure set default.s3.max_concurrent_requests 64
             aws s3 sync out/stage/data "$BUCKET/data" --endpoint-url "$R2_ENDPOINT" --only-show-errors
           fi
           while IFS= read -r f; do
@@ -102,7 +104,7 @@ jobs:
           key: pipeline-${{ github.run_id }}-published
 
       - name: Daily snapshot (history)
-        if: github.event_name == 'schedule' || github.event.client_payload.reason == 'backstop'
+        if: contains(fromJSON('["nightly","backstop"]'), github.event.client_payload.reason)
         run: |
           day=$(date -u +%F)
           for f in meta.json matrix-fabric.json matrix-neoforge.json matrix-forge.json stats-fabric.json stats-neoforge.json stats-forge.json; do
@@ -111,8 +113,7 @@ jobs:
 
       - id: decide
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] \
-            || [ "${{ github.event.client_payload.rebuild }}" = "true" ] \
+          if [ "${{ github.event.client_payload.rebuild }}" = "true" ] \
             || [ "${{ inputs.rebuild }}" = "true" ]; then
             echo "rebuild=true" >> "$GITHUB_OUTPUT"
           fi

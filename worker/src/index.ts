@@ -25,6 +25,8 @@ const RELEASE_REFRESH_MS = 30 * 60_000;
 /** If the published data is older than this, trigger a refresh ourselves (GitHub's own schedule runs late, or can get paused). */
 const STALE_MS = 26 * 3600_000;
 const BACKSTOP_RETRY_MS = 6 * 3600_000;
+/** The nightly full refresh starts here, not on GitHub's schedule, which ran 4-8 hours late in Nov 2026. */
+const NIGHTLY_UTC_HOUR = 3;
 
 interface State {
   release: string;
@@ -32,6 +34,8 @@ interface State {
   releaseTime: string;
   lastRefresh: number;
   lastBackstop?: number;
+  /** UTC date (YYYY-MM-DD) of the last nightly refresh */
+  lastNightly?: string;
 }
 
 export default {
@@ -105,7 +109,12 @@ export async function checkManifest(env: Env): Promise<void> {
   else if (prev.snapshot !== m.latest.snapshot) reason = `new-snapshot:${m.latest.snapshot}`;
   else if (now - Date.parse(releaseTime) < RELEASE_WINDOW_MS && now - prev.lastRefresh >= RELEASE_REFRESH_MS) reason = 'release-day';
 
-  const next: State = { release: m.latest.release, snapshot: m.latest.snapshot, releaseTime, lastRefresh: prev?.lastRefresh ?? 0, lastBackstop: prev?.lastBackstop };
+  const next: State = { release: m.latest.release, snapshot: m.latest.snapshot, releaseTime, lastRefresh: prev?.lastRefresh ?? 0, lastBackstop: prev?.lastBackstop, lastNightly: prev?.lastNightly };
+  const today = new Date(now).toISOString().slice(0, 10);
+  if (!reason && new Date(now).getUTCHours() >= NIGHTLY_UTC_HOUR && prev?.lastNightly !== today) {
+    reason = 'nightly';
+    next.lastNightly = today;
+  }
   if (!reason && now - (prev?.lastBackstop ?? 0) >= BACKSTOP_RETRY_MS) {
     const published = await env.DATA.head('data/meta.json');
     if (published && now - published.uploaded.getTime() > STALE_MS) {

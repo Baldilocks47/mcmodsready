@@ -268,7 +268,8 @@ async function main() {
   const pageList: PageRef[] = mods.slice(0, PAGES).map((m) => ({ id: m.id, slug: m.slug }));
   const pageIds = new Set(pageList.map((p) => p.id));
   for (const m of mods) {
-    await writeJson(`m/${m.id}.json`, { ...m, page: pageIds.has(m.id) } satisfies ModFile);
+    // Downloads to the precision pages show them: exact counts change daily and made every file re-upload.
+    await writeJson(`m/${m.id}.json`, { ...m, downloads: roughly(m.downloads), page: pageIds.has(m.id) } satisfies ModFile);
     // slug -> id lookup for badges (/badge/<slug>.svg)
     await writeJson(`slug/${m.slug}.json`, { id: m.id });
   }
@@ -291,6 +292,13 @@ async function main() {
   await writeJson('meta.json', meta);
   log(`tracked: ${LOADERS.map((l) => `${l} ${tracked[l]}`).join(', ')}; ${versionsWithData.size} versions with data`);
   log(`done in ${((Date.now() - t0) / 1000).toFixed(1)}s → ${OUT}`);
+}
+
+/** Two significant figures, e.g. 37,924,797 -> 38,000,000; 15,432 -> 15,000. */
+function roughly(n: number): number {
+  if (n < 100) return n;
+  const step = 10 ** (Math.floor(Math.log10(n)) - 1);
+  return Math.round(n / step) * step;
 }
 
 function windowHas(drops: { patches: string[]; previews: string[] }[], id: string) {

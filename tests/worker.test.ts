@@ -38,7 +38,7 @@ describe('manifest cron', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
-  const prev = (over = {}) => ({ release: '26.3', snapshot: '26.4-snapshot-6', releaseTime: OLD, lastRefresh: NOW - 24 * HOUR, ...over });
+  const prev = (over = {}) => ({ release: '26.3', snapshot: '26.4-snapshot-6', releaseTime: OLD, lastRefresh: NOW - 24 * HOUR, lastNightly: '2026-12-15', ...over });
 
   it('does nothing on a quiet day', async () => {
     const t = setup(manifest('26.3', '26.4-snapshot-6', OLD), prev());
@@ -76,6 +76,18 @@ describe('manifest cron', () => {
     const t = setup(manifest('26.4', '26.4', out), prev({ release: '26.4', snapshot: '26.4', releaseTime: out, lastRefresh: NOW - HOUR }));
     await checkManifest(t.env);
     expect(t.dispatches).toEqual([]);
+  });
+
+  it('starts the nightly refresh once a day, from 03:00 UTC', async () => {
+    const t = setup(manifest('26.3', '26.4-snapshot-6', OLD), prev({ lastNightly: '2026-12-14' }));
+    await checkManifest(t.env);
+    expect(t.dispatches).toEqual([{ reason: 'nightly', rebuild: true }]);
+    expect(t.saved().lastNightly).toBe('2026-12-15');
+
+    vi.setSystemTime(Date.parse('2026-12-16T02:50:00Z'));
+    const early = setup(manifest('26.3', '26.4-snapshot-6', OLD), prev());
+    await checkManifest(early.env);
+    expect(early.dispatches).toEqual([]);
   });
 
   it('triggers a backstop refresh when published data is stale, at most every 6h', async () => {
