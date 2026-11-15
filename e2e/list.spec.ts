@@ -123,3 +123,13 @@ test('dropping a jar hashes it in the browser', async ({ page }) => {
   await expect(page.locator('.mods li').filter({ hasText: 'Sodium' })).toBeVisible();
   expect(hash).toBe('aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d'); // sha1("hello")
 });
+
+test('a mod that no longer exists is shown as not found and can be removed', async ({ page }) => {
+  await page.goto('/list#v=1&n=Old+pack&l=fabric&t=d:26.3&m=AANobbMI.ZZZZZZZZ');
+  await expect(page.locator('.mods li').filter({ hasText: 'Sodium' })).toBeVisible();
+  const missing = page.locator('.mods li.missing');
+  await expect(missing).toContainText("Couldn't find this mod");
+  await missing.getByRole('button', { name: 'Remove mod ZZZZZZZZ' }).click();
+  await expect(missing).toHaveCount(0);
+  await expect(page.locator('.mods li')).toHaveCount(1);
+});

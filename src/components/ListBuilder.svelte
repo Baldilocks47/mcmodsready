@@ -1,20 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { listReadiness, type Group, type ListItem } from '../lib/core/readiness';
-  import { decodeList, encodeList, migrateList, parsePasted, type ModList } from '../lib/core/share';
+  import { decodeList, encodeList, parsePasted, type ModList } from '../lib/core/share';
   import { altDrop, cellAt, defaultTarget, depsAt, isUpcoming, parseTarget } from '../lib/core/targets';
   import type { Drop, GameVersion, Loader, ModFile, Status } from '../lib/core/types';
   import { summariseImport } from '../lib/core/import';
   import { loadMods, resolveNames, searchMods, type SearchResult } from '../lib/ui/data';
   import { importFiles } from '../lib/ui/import';
-  import { ALT_REASON, DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, altNeedsCaveat, modrinthUrl } from '../lib/ui/status';
+  import { loadLists, saveLists } from '../lib/ui/lists';
+  import { ModLoader } from '../lib/ui/mod-loader';
+  import { DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, fmtDownloads, modrinthUrl } from '../lib/ui/status';
+  import AltList from './AltList.svelte';
   import Chip from './Chip.svelte';
   import Ring from './Ring.svelte';
   import TargetPicker from './TargetPicker.svelte';
 
   let { drops, versions, loaders, hostCta }: { drops: Drop[]; versions: GameVersion[]; loaders: Loader[]; hostCta: string | null } = $props();
 
-  const KEY = 'mmr.lists.v1';
   const src = { drops, versions };
   const newId = () => Math.random().toString(36).slice(2, 10);
   const blank = (): ModList => ({ id: newId(), name: 'My mods', loader: 'fabric', target: defaultTarget(src), acceptPrerelease: false, mods: [] });
@@ -22,7 +24,10 @@
   let lists = $state<ModList[]>([]);
   let currentId = $state('');
   let mods = $state(new Map<string, ModFile>());
+  /** ids looked up and not found (removed from Modrinth, or the lookup failed) */
+  let unfound = $state<string[]>([]);
   let loading = $state(false);
+  const fetcher = new ModLoader(loadMods);
   let query = $state('');
   let results = $state<SearchResult[]>([]);
   let pasted = $state('');
@@ -32,11 +37,7 @@
   let showSnapshots = $state(false);
 
   onMount(() => {
-    try {
-      lists = (JSON.parse(localStorage.getItem(KEY) ?? '[]') as ModList[]).map(migrateList);
-    } catch {
-      lists = [];
-    }
+    lists = loadLists();
     if (location.hash.length > 1) {
       const shared = decodeList(location.hash, newId);
       if (shared) {
@@ -57,12 +58,7 @@
   });
 
   $effect(() => {
-    if (!ready) return;
-    try {
-      localStorage.setItem(KEY, JSON.stringify(lists));
-    } catch {
-      // storage unavailable (private mode etc.); lists last for this visit only
-    }
+    if (ready) saveLists(lists);
   });
 
   const list = $derived(lists.find((l) => l.id === currentId));
@@ -70,37 +66,32 @@
   const upcoming = $derived(target ? isUpcoming(target, src) : false);
   const opts = $derived({ acceptPrerelease: list?.acceptPrerelease });
 
-  // Load list mods, then any required dependencies not already loaded.
+  // Load list mods and their required dependencies. The loader asks for each id only once, so an
+  // id that can't be found doesn't make this run forever.
   $effect(() => {
     if (!list) return;
-    const want = list.mods.filter((id) => !mods.has(id));
-    const loader = list.loader;
-    if (!want.length) {
-      loadDeps(loader);
-      return;
-    }
-    loading = true;
-    loadMods(want)
-      .then((got) => {
-        const next = new Map(mods);
-        for (const [k, v] of got) next.set(k, v);
-        mods = next;
-        loadDeps(loader);
-      })
-      .finally(() => (loading = false));
+    const { loader, mods: ids } = list;
+    const t = target;
+    const deps = t ? ids.flatMap((id) => { const m = mods.get(id); return m ? depsAt(m, loader, t) : []; }) : [];
+    const want = [...ids, ...deps].filter((id) => !mods.has(id));
+    if (want.length) fetchMods(want);
   });
 
-  function loadDeps(loader: Loader) {
-    if (!list) return;
-    const t = parseTarget(list.target, src);
-    if (!t) return;
-    const deps = list.mods.flatMap((id) => { const m = mods.get(id); return m ? depsAt(m, loader, t) : []; }).filter((d) => !mods.has(d));
-    if (!deps.length) return;
-    loadMods([...new Set(deps)]).then((got) => {
-      const next = new Map(mods);
-      for (const [k, v] of got) next.set(k, v);
-      mods = next;
-    });
+  function fetchMods(ids: string[]) {
+    loading = true;
+    fetcher
+      .load(ids)
+      .then(({ found, missing }) => {
+        if (found.size) mods = new Map([...mods, ...found]);
+        if (missing.length) unfound = [...new Set([...unfound, ...missing])];
+      })
+      .finally(() => (loading = false));
+  }
+
+  function retry(id: string) {
+    fetcher.forget([id]);
+    unfound = unfound.filter((x) => x !== id);
+    fetchMods([id]);
   }
 
   /** list mods plus required dependencies not already in the list */
@@ -119,7 +110,8 @@
       }
     return [...inList.map((mod) => ({ mod })), ...extra];
   });
-  const pending = $derived(list ? list.mods.filter((id) => !mods.has(id)).length : 0);
+  const notFound = $derived(list ? list.mods.filter((id) => !mods.has(id) && unfound.includes(id)) : []);
+  const pending = $derived(list ? list.mods.filter((id) => !mods.has(id)).length - notFound.length : 0);
 
   const status = (m: ModFile): Status => (list && target ? cellAt(m, list.loader, target, src).status : 'unknown');
   const result = $derived(listReadiness(entries.map(({ mod }): ListItem => ({ slug: mod.slug, title: mod.title, env: mod.env, status: status(mod) })), opts));
@@ -228,7 +220,6 @@
     client: 'Mods that only players install, such as shaders, minimaps or performance mods. Your server doesn’t need them.',
     both: 'Mods that must be on the server and in every player’s game (content mods, libraries like Fabric API). Includes mods marked optional on either side.',
   };
-  const fmtDl = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 </script>
 
 {#if list && target}
@@ -267,7 +258,7 @@
               <li>
                 <button onclick={() => add(r)}>
                   {#if r.icon}<img class="mod-icon" src={r.icon} alt="" width="20" height="20" />{/if}
-                  <span class="s-title">{r.title}</span><span class="small muted">{fmtDl(r.downloads)}</span>
+                  <span class="s-title">{r.title}</span><span class="small muted">{fmtDownloads(r.downloads)}</span>
                 </button>
               </li>
             {/each}
@@ -291,7 +282,7 @@
     </aside>
 
     <section class="results">
-      {#if !entries.length && !pending}
+      {#if !entries.length && !pending && !notFound.length}
         <div class="card empty">
           <h2>Add your mods to see if they're ready for {target.label}</h2>
           <p class="muted">Search any {LOADER_LABEL[list.loader]} mod on Modrinth, paste your list, or drop a modpack or your mods folder.</p>
@@ -346,10 +337,7 @@
                   {#if alts.length}
                     <div class="small alts">
                       Possible replacements that are ready:
-                      {#each alts as a, i}
-                        {i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? bySlug.get(a.slug)?.title ?? a.slug}</a> <span class="muted">({a.reason ? ALT_REASON[a.reason] : a.curated ? ALT_REASON.curated : ALT_REASON.similar})</span>
-                      {/each}
-                      {#if altNeedsCaveat(alts)}<span class="muted"> Check features before switching.</span>{/if}
+                      <AltList {alts} titleOf={(slug) => bySlug.get(slug)?.title} />
                     </div>
                   {/if}
                 </li>
@@ -359,7 +347,7 @@
         {/if}
 
         <section class="card">
-          <h2>Your mods ({entries.length})</h2>
+          <h2>Your mods ({entries.length + notFound.length})</h2>
           <ul class="mods">
             {#each entries as { mod, requiredBy } (mod.id)}
               <li>
@@ -373,6 +361,17 @@
                 </div>
                 <Chip status={status(mod)} {upcoming} />
                 {#if !requiredBy}<button class="x" onclick={() => remove(mod.id)} aria-label="Remove {mod.title}">✕</button>{/if}
+              </li>
+            {/each}
+            {#each notFound as id (id)}
+              <li class="missing">
+                <span class="mod-icon"></span>
+                <div class="m-main">
+                  <span>Mod {id}</span>
+                  <div class="small muted">Couldn't find this mod. It may have been removed from Modrinth.</div>
+                </div>
+                <button onclick={() => retry(id)}>Retry</button>
+                <button class="x" onclick={() => remove(id)} aria-label="Remove mod {id}">✕</button>
               </li>
             {/each}
           </ul>

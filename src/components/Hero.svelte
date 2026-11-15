@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Loader } from '../lib/core/types';
-  import type { FeedEvent, MetaFile, StatsFile } from '../lib/data-schema';
+  import { schemaOk, type FeedEvent, type MetaFile, type StatsFile } from '../lib/data-schema';
   import { DATA_BASE, LOADER_LABEL, daysAgo } from '../lib/ui/status';
 
   let {
@@ -20,6 +20,8 @@
     try {
       const get = (f: string) => fetch(`${DATA_BASE}/${f}`).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
       const [m, fd, ...ss] = await Promise.all([get('meta.json'), get('feed.json'), ...initialMeta.loaders.map((l) => get(`stats-${l}.json`))]);
+      // data written in a newer shape than this page understands: keep the pre-rendered numbers
+      if (!schemaOk(m)) return;
       meta = m;
       stats = Object.fromEntries(initialMeta.loaders.map((l, i) => [l, ss[i]])) as Record<Loader, StatsFile>;
       feed = fd.events;

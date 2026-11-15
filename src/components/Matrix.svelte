@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Cell, Drop, GameVersion, Loader, Status } from '../lib/core/types';
+  import { compareDrop } from '../lib/core/versions';
   import type { MatrixFile, MatrixMod } from '../lib/data-schema';
   import { loadMatrix, loadShard } from '../lib/ui/data';
   import { ENV, LOADER_LABEL, STATUS, fmtDownloads } from '../lib/ui/status';
@@ -69,8 +70,9 @@
     const gv = byId.get(v)!;
     const e = s[m.id];
     if (e) return { status: gv.type === 'snapshot' ? 'snapshot' : e === 'r' ? 'ready' : 'prerelease', patches: [v] };
-    const current = gv.drop != null && gv.drop.localeCompare(currentDrop, undefined, { numeric: true }) >= 0;
-    return { status: current ? 'not_yet' : 'no_build' };
+    if (gv.drop == null || compareDrop(gv.drop, currentDrop) < 0) return { status: 'no_build' };
+    // "inactive" doesn't depend on the version asked about, so the current drop's cell already says it
+    return { status: m.cells[currentDrop]?.status === 'dropped' ? 'dropped' : 'not_yet' };
   }
 
   function addColumn() {

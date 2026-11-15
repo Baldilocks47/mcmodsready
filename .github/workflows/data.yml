@@ -59,9 +59,9 @@ jobs:
       - name: Fetch previously published summary files
         run: |
           mkdir -p .prev
-          for f in meta.json matrix-fabric.json matrix-neoforge.json matrix-forge.json; do
-            aws s3 cp "$BUCKET/data/$f" ".prev/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors || true
-          done
+          # by pattern, so adding a loader needs no change here
+          aws s3 cp "$BUCKET/data/" .prev --recursive --exclude "*" --include "meta.json" --include "matrix-*.json" \
+            --endpoint-url "$R2_ENDPOINT" --only-show-errors || true
 
       # A cold cache needs ~16k version lists (~1h). Cap per run so a first backfill spans two runs
       # comfortably inside the timeout; mods not fetched yet are looked up live by the site meanwhile.
@@ -86,6 +86,7 @@ jobs:
         run: npx tsx pipeline/guard.ts .prev out/data
 
       - name: Publish changed files to R2
+        id: publish
         run: |
           npx tsx pipeline/stage-changed.ts out/data out/stage/data .cache/published.json
           if [ -n "$(ls -A out/stage/data)" ]; then
@@ -97,18 +98,12 @@ jobs:
             [ -n "$f" ] && aws s3 rm "$BUCKET/data/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors
           done < out/stage/deleted.txt
 
-      - name: Save published manifest
-        uses: actions/cache/save@v4
-        with:
-          path: .cache
-          key: pipeline-${{ github.run_id }}-published
-
       - name: Daily snapshot (history)
         if: contains(fromJSON('["nightly","backstop"]'), github.event.client_payload.reason)
         run: |
           day=$(date -u +%F)
-          for f in meta.json matrix-fabric.json matrix-neoforge.json matrix-forge.json stats-fabric.json stats-neoforge.json stats-forge.json; do
-            aws s3 cp "out/data/$f" "$BUCKET/snapshots/$day/$f" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+          for f in out/data/meta.json out/data/matrix-*.json out/data/stats-*.json; do
+            aws s3 cp "$f" "$BUCKET/snapshots/$day/$(basename "$f")" --endpoint-url "$R2_ENDPOINT" --only-show-errors
           done
 
       - id: decide
@@ -134,13 +129,15 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
-      # keep rendered social cards (.cache/og) so the next build only re-renders changed ones
-      - name: Save pipeline cache (with social cards)
-        if: always() && steps.decide.outputs.rebuild == 'true'
+      # Second and last save, once the publish has gone through: adds the manifest of what's now in R2
+      # (.cache/published.json) and any newly rendered social cards (.cache/og). Runs even if the site
+      # build or deploy failed, because the data is already published by then.
+      - name: Save pipeline cache (published manifest + social cards)
+        if: always() && steps.publish.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: .cache
-          key: pipeline-${{ github.run_id }}-og
+          key: pipeline-${{ github.run_id }}-published
 
       - name: Smoke test the live site
         if: steps.decide.outputs.rebuild == 'true'

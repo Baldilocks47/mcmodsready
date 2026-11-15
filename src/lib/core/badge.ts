@@ -1,7 +1,7 @@
 // Shields-style SVG badges ("MC 26.3 | ready"), rendered by the Worker at /badge/<mod>.svg.
 // Pure functions so the Worker and tests share them. Text is Verdana 11px (what shields.io uses) so
 // widths are predictable on GitHub, Modrinth and CurseForge, which proxy images and ignore web fonts.
-import type { Loader, Status } from './types';
+import type { Status } from './types';
 
 export const BADGE_STATUS: Record<Status, { text: string; color: string }> = {
   ready: { text: 'ready', color: '#2ea043' },
@@ -66,5 +66,3 @@ export function badgeSvg({ label, message, color, title }: BadgeOptions): string
 <text x="${lw + mw / 2}" y="14.5" fill="#000" fill-opacity=".3">${esc(message)}</text><text x="${lw + mw / 2}" y="13.5">${esc(message)}</text>
 </g></svg>`;
 }
-
-export const LOADER_NAME: Record<Loader, string> = { fabric: 'Fabric', neoforge: 'NeoForge', forge: 'Forge' };

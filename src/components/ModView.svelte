@@ -2,7 +2,9 @@
   import { dropCell, versionCell } from '../lib/core/status';
   import { contextFor } from '../lib/core/targets';
   import type { Drop, GameVersion, Loader, ModFile } from '../lib/core/types';
-  import { ALT_REASON, DECLARED_NOTE, ENV, LOADER_LABEL, STATUS, altNeedsCaveat, fmtDownloads, modrinthUrl } from '../lib/ui/status';
+  import { DECLARED_NOTE, ENV, LOADER_LABEL, fmtDownloads, modrinthUrl } from '../lib/ui/status';
+  import AltList from './AltList.svelte';
+  import Chip from './Chip.svelte';
 
   let {
     mod,
@@ -24,11 +26,6 @@
       : `Not yet: ${mod.title} has no release declared for ${latest.id}${verdict.some((v) => v.s === 'prerelease') ? ' (beta builds are available)' : ''}.`,
   );
   const legacyFor = (l: Loader) => (popularLegacy[l] ?? []).map((id) => versions.find((v) => v.id === id)).filter((v): v is GameVersion => !!v);
-  const chip = (status: string, upcoming: boolean) => {
-    const waiting = upcoming && status === 'not_yet';
-    const s = waiting ? { icon: '…', label: 'Waiting' } : STATUS[status as keyof typeof STATUS];
-    return { cls: waiting ? 'not_applicable' : status, ...s };
-  };
 </script>
 
 <article>
@@ -55,19 +52,17 @@
           <tbody>
             {#each drops as d}
               {@const c = dropCell(s, d, ctx)}
-              {@const ch = chip(c.status, d.upcoming)}
               <tr>
                 <th scope="row">{d.id}{#if d.upcoming}<span class="muted small"> (upcoming)</span>{/if}</th>
-                <td><span class="chip s-{ch.cls}"><span class="i" aria-hidden="true">{ch.icon}</span>{ch.label}</span></td>
+                <td><Chip status={c.status} upcoming={d.upcoming} /></td>
                 <td class="small muted">{c.lagDays != null ? (c.lagDays === 0 ? 'day one' : `+${c.lagDays} days`) : ''}{c.patches?.length ? ` · ${c.patches.join(', ')}` : ''}</td>
               </tr>
             {/each}
             {#each legacyFor(l) as v}
               {@const c = versionCell(s, v, ctx)}
-              {@const ch = chip(c.status, false)}
               <tr class="legacy">
                 <th scope="row">{v.id}</th>
-                <td><span class="chip s-{ch.cls}"><span class="i" aria-hidden="true">{ch.icon}</span>{ch.label}</span></td>
+                <td><Chip status={c.status} /></td>
                 <td></td>
               </tr>
             {/each}
@@ -76,8 +71,7 @@
         {#if alts.length}
           <p class="small">
             Possible replacements ready for {latest.id}:
-            {#each alts as a, i}{i ? ', ' : ''}<a href="/mod/{a.slug}" title={a.note ?? ''}>{a.title ?? titles[a.slug] ?? a.slug}</a> <span class="muted">({a.reason ? ALT_REASON[a.reason] : a.curated ? ALT_REASON.curated : ALT_REASON.similar})</span>{/each}
-            {#if altNeedsCaveat(alts)}<span class="muted"> Check features before switching.</span>{/if}
+            <AltList {alts} titleOf={(slug) => titles[slug]} />
           </p>
         {/if}
       </section>

@@ -1,7 +1,17 @@
 // Shared types used by the data pipeline and the site.
 
-export type Loader = 'fabric' | 'neoforge' | 'forge';
-export const LOADERS: Loader[] = ['fabric', 'neoforge', 'forge'];
+/**
+ * Everything loader-specific lives here. To add a loader: add a row, and its jar metadata file to
+ * JAR_META in core/import.ts.
+ */
+export const LOADER_INFO = {
+  fabric: { label: 'Fabric', packKey: 'fabric-loader' },
+  neoforge: { label: 'NeoForge', packKey: 'neoforge' },
+  forge: { label: 'Forge', packKey: 'forge' },
+} as const;
+export type Loader = keyof typeof LOADER_INFO;
+export const LOADERS = Object.keys(LOADER_INFO) as Loader[];
+export const LOADER_LABEL = Object.fromEntries(LOADERS.map((l) => [l, LOADER_INFO[l].label])) as Record<Loader, string>;
 
 /** Where a mod has to be installed, normalised from Modrinth's environment fields. */
 export type Env = 'client' | 'server' | 'both' | 'either' | 'unknown';

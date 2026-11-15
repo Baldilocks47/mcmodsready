@@ -11,7 +11,7 @@ export interface Env {
   DATA: R2Bucket;
   STATE: KVNamespace;
   CLICKS?: AnalyticsEngineDataset;
-  /** fine-grained PAT with "Actions: write" (or "Contents: write") on the repo */
+  /** fine-grained PAT with "Contents: read and write" on the repo (needed for repository_dispatch) */
   GITHUB_TOKEN: string;
   /** "owner/repo" */
   GITHUB_REPO: string;
@@ -41,7 +41,7 @@ interface State {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/data/')) return serveData(req, url, env);
+    if (url.pathname.startsWith('/data/')) return serveData(req, url, env, ctx);
     if (url.pathname.startsWith('/go/')) return redirect(url, env, ctx);
     if (url.pathname.startsWith('/badge/')) return badge(req, url, env, ctx);
     return env.ASSETS.fetch(req);
@@ -62,11 +62,18 @@ const DATA_TYPES: Record<string, string> = {
   svg: 'image/svg+xml',
 };
 
-async function serveData(req: Request, url: URL, env: Env): Promise<Response> {
+async function serveData(req: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const key = url.pathname.slice(1); // "data/meta.json"
   const type = DATA_TYPES[key.slice(key.lastIndexOf('.') + 1).toLowerCase()];
   if (!type || !/^data\/[a-z0-9._/-]+$/i.test(key) || key.includes('..')) return new Response('Bad path', { status: 400 });
-  const obj = await env.DATA.get(key);
+  // Edge cache first (it answers If-None-Match itself), so most requests never reach R2.
+  // The cache-control times below bound how stale a cached copy can be, same as for browsers.
+  const cache = req.method === 'GET' && typeof caches !== 'undefined' ? caches.default : null;
+  const cacheKey = new Request(url.origin + url.pathname, { headers: req.headers });
+  const hit = await cache?.match(cacheKey);
+  if (hit) return hit;
+
+  const obj = await env.DATA.get(key, { onlyIf: req.headers });
   // Before the first pipeline publish, fall back to any data bundled with the site.
   if (!obj) return env.ASSETS.fetch(req);
   const headers = new Headers({
@@ -75,7 +82,11 @@ async function serveData(req: Request, url: URL, env: Env): Promise<Response> {
     'cache-control': /^data\/(m|v)\//.test(key) ? 'public, max-age=900' : 'public, max-age=120',
     etag: obj.httpEtag,
   });
-  return new Response(obj.body, { headers });
+  // The browser's copy is still current: R2 returns no body when the If-None-Match check fails.
+  if (!('body' in obj)) return new Response(null, { status: 304, headers });
+  const res = new Response(obj.body, { headers });
+  if (cache) ctx.waitUntil(cache.put(new Request(url.origin + url.pathname), res.clone()));
+  return res;
 }
 
 async function redirect(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {

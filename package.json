@@ -8,7 +8,7 @@
     "preview": "astro preview",
     "data": "tsx pipeline/build-data.ts",
     "test": "vitest run",
-    "check": "astro check && tsc --noEmit",
+    "check": "astro check && tsc --noEmit && tsc --noEmit -p worker",
     "deploy": "tsx pipeline/check-fresh.ts && npm run build && wrangler deploy",
     "stats": "tsx pipeline/stats.ts",
     "e2e": "playwright test"

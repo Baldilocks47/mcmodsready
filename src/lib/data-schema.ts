@@ -10,7 +10,18 @@ import type { Cell, Drop, Env, GameVersion, Loader } from './core/types';
 
 export type { AltRef, ModFile } from './core/types';
 
+/**
+ * Bump when a published file changes shape in a way older site code can't read. Pre-rendered pages
+ * are rebuilt less often than the data, so the browser checks this before using freshly fetched data.
+ */
+export const SCHEMA_VERSION = 1;
+
+/** Files published before the version field existed count as version 1. */
+export const schemaOk = (m: { schema?: number }) => (m.schema ?? 1) === SCHEMA_VERSION;
+
 export interface MetaFile {
+  /** SCHEMA_VERSION the data was written with */
+  schema?: number;
   generatedAt: string;
   latestRelease: string;
   latestSnapshot: string;

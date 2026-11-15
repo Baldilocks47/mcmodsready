@@ -1,5 +1,6 @@
 // Minimal Modrinth v2 client: identifies itself, paces requests, respects X-Ratelimit headers,
 // backs off on 429/5xx and network errors.
+import type { SearchHit } from '../src/lib/core/support';
 import type { Loader, ModVersion } from '../src/lib/core/types';
 
 const API = 'https://api.modrinth.com/v2';
@@ -49,21 +50,7 @@ async function get<T>(path: string, attempt = 0): Promise<T> {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const q = (v: unknown) => encodeURIComponent(JSON.stringify(v));
 
-export interface SearchHit {
-  project_id: string;
-  project_type: string;
-  slug: string;
-  title: string;
-  description: string;
-  icon_url: string | null;
-  downloads: number;
-  categories: string[];
-  client_side: string;
-  server_side: string;
-  environment?: string[] | string;
-  date_modified: string;
-  author?: string;
-}
+export type { SearchHit };
 
 /** All mods for a loader with at least `minDownloads`, most downloaded first (capped at `max`). */
 export async function modsForLoader(loader: Loader, minDownloads: number, max: number): Promise<SearchHit[]> {

@@ -1,6 +1,6 @@
 // Turn a modpack or a mods folder into a list of hashes (and fallback names) to look up on Modrinth.
 // Pure parsing only: unzipping and hashing happen in the browser (src/lib/ui/import.ts), and files never leave it.
-import { LOADERS, type Loader } from './types';
+import { LOADER_INFO, LOADERS, type Loader } from './types';
 
 export interface PackIndex {
   name: string;
@@ -17,14 +17,15 @@ interface RawIndex {
   files?: { path?: string; hashes?: { sha1?: string } }[];
 }
 
-const LOADER_KEYS: Record<string, Loader> = { 'fabric-loader': 'fabric', neoforge: 'neoforge', forge: 'forge' };
+/** .mrpack dependency key -> loader */
+const LOADER_KEYS: Record<string, Loader> = Object.fromEntries(LOADERS.map((l) => [LOADER_INFO[l].packKey, l]));
 
 /** Parse a .mrpack's modrinth.index.json. Throws if it isn't one. */
 export function parsePackIndex(json: string): PackIndex {
   const raw = JSON.parse(json) as RawIndex;
   if (!raw || !Array.isArray(raw.files)) throw new Error('Not a Modrinth modpack index');
   const dep = raw.dependencies ?? {};
-  const key = Object.keys(dep).find((k) => k in LOADER_KEYS);
+  const key = Object.keys(dep).find((k) => Object.hasOwn(LOADER_KEYS, k));
   return {
     name: (raw.name ?? 'Imported pack').slice(0, 80),
     loader: key ? LOADER_KEYS[key] : null,

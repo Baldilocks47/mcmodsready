@@ -1,7 +1,8 @@
 // Build-time numbers for the per-drop adoption report (/report/<drop>).
 // Everything is derived from the published data: top-100 per loader by Modrinth downloads.
 import { matrix, meta, modFile, stats } from './build-data';
-import { dropCell } from './core/status';
+import { bestStatus } from './core/badge';
+import { dropCell, median } from './core/status';
 import { contextFor } from './core/targets';
 import type { Drop, Loader, Status } from './core/types';
 
@@ -37,7 +38,6 @@ export interface Report {
 }
 
 const DAY = 86_400_000;
-const RANK: Status[] = ['ready', 'prerelease', 'snapshot', 'not_yet', 'no_build', 'dropped', 'not_applicable', 'unknown'];
 
 export function reportFor(dropId: string): Report {
   const m = meta();
@@ -50,14 +50,13 @@ export function reportFor(dropId: string): Report {
     const top = matrix(loader).mods.slice(0, 100);
     const cells = top.map((x) => x.cells[drop.id]).filter(Boolean);
     const lags = cells.filter((c) => c.status === 'ready' && c.lagDays != null).map((c) => c.lagDays!);
-    const sorted = [...lags].sort((a, b) => a - b);
     return {
       loader,
       points: Array.from({ length: horizon + 1 }, (_, d) => Math.round((100 * lags.filter((x) => x <= d).length) / top.length)),
       readyNow: cells.filter((c) => c.status === 'ready').length,
       betaNow: cells.filter((c) => c.status === 'prerelease').length,
       dayOne: lags.filter((x) => x <= 1).length,
-      median: sorted.length ? sorted[Math.floor(sorted.length / 2)] : null,
+      median: median(lags),
     };
   });
 
@@ -85,7 +84,7 @@ export function reportFor(dropId: string): Report {
     const loaders = (Object.keys(f.loaders) as Loader[]).filter((l) => m.loaders.includes(l));
     const statuses = loaders.map((l) => dropCell(f.loaders[l], drop, contextFor(f, src)).status);
     if (!loaders.length || statuses.includes('ready')) continue;
-    const best = [...statuses].sort((a, b) => RANK.indexOf(a) - RANK.indexOf(b))[0];
+    const best = bestStatus(statuses);
     if (best === 'dropped') continue; // abandoned mods aren't "waiting"
     waiting.push({ slug: x.slug, title: x.title, downloads: x.downloads, status: best, loaders });
     if (waiting.length >= 15) break;

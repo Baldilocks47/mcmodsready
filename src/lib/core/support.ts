@@ -53,9 +53,10 @@ export function deriveSupport(versions: ModVersion[], loader: Loader): LoaderSup
   return { v, deps, ...(Object.keys(d).length ? { d } : {}), incompat };
 }
 
-/** Normalise a Modrinth search hit into the project shape we use. */
-export function projectFromHit(h: {
+/** A Modrinth search hit (the fields we use). */
+export interface SearchHit {
   project_id: string;
+  project_type: string;
   slug: string;
   title: string;
   description: string;
@@ -66,9 +67,21 @@ export function projectFromHit(h: {
   server_side: string;
   environment?: string[] | string;
   date_modified: string;
-  project_type: string;
   author?: string;
-}): ModProject {
+}
+
+/** A project as Modrinth's /project and /projects endpoints return it (the fields we use). */
+export type ApiProject = Omit<ModProject, 'environment'> & { environment?: string[] | string };
+
+const envList = (e: string[] | string | undefined) => (typeof e === 'string' ? [e] : e);
+
+/** Normalise a Modrinth project into the shape we use. Shared by the browser and the Worker. */
+export function projectFromApi(p: ApiProject): ModProject {
+  return { ...p, icon_url: p.icon_url || null, environment: envList(p.environment) };
+}
+
+/** Normalise a Modrinth search hit into the project shape we use. */
+export function projectFromHit(h: SearchHit): ModProject {
   const loaders = h.categories.filter((c) => (LOADERS as string[]).includes(c) || c === 'quilt');
   return {
     id: h.project_id,
@@ -82,7 +95,7 @@ export function projectFromHit(h: {
     project_type: h.project_type,
     client_side: h.client_side,
     server_side: h.server_side,
-    environment: typeof h.environment === 'string' ? [h.environment] : h.environment,
+    environment: envList(h.environment),
     updated: h.date_modified,
     author: h.author,
   };

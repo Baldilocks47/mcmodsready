@@ -1,6 +1,8 @@
 // Release-day behaviour of the Worker cron, which can't be exercised for real until a drop ships.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { checkManifest, type Env } from '../worker/src/index';
+import geckolib from './fixtures/data/m/8BmcQJ2H.json';
+import meta from './fixtures/data/meta.json';
 
 const HOUR = 3600_000;
 const NOW = Date.parse('2026-12-15T12:00:00Z');
@@ -121,5 +123,47 @@ describe('/data route', () => {
     expect((await get('/data/i/AANobbMI.webp')).headers.get('content-type')).toBe('image/webp');
     expect((await get('/data/secret.txt')).status).toBe(400);
     expect((await get('/data/..%2Fx.json')).status).toBe(400);
+  });
+
+  it('answers 304 when the browser copy is still current', async () => {
+    // R2 returns the object without a body when the If-None-Match check fails
+    const unchanged = { DATA: { get: async () => ({ httpEtag: '"e"' }) } } as unknown as Env;
+    const res = await worker.fetch(new Request('https://mcmodsready.com/data/meta.json', { headers: { 'if-none-match': '"e"' } }), unchanged, {} as never);
+    expect(res.status).toBe(304);
+    expect(res.headers.get('etag')).toBe('"e"');
+  });
+});
+
+describe('/badge route', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const files: Record<string, unknown> = { 'data/meta.json': meta, 'data/slug/geckolib.json': { id: geckolib.id }, [`data/m/${geckolib.id}.json`]: geckolib };
+
+  it('finds a tracked mod whose slug looks like an id, and ignores stray query parameters when caching', async () => {
+    const reads: string[] = [];
+    const stored = new Map<string, Response>();
+    vi.stubGlobal('caches', { default: { match: async (r: Request) => stored.get(r.url)?.clone(), put: async (r: Request, res: Response) => void stored.set(r.url, res) } });
+    vi.stubGlobal('fetch', async () => {
+      throw new Error('a tracked mod should not be looked up on Modrinth');
+    });
+    const env = {
+      DATA: {
+        get: async (key: string) => {
+          reads.push(key);
+          // "geckolib" is 8 characters, like a project id, but there is no m/geckolib.json
+          return files[key] ? { json: async () => files[key] } : null;
+        },
+      },
+    } as unknown as Env;
+    const pending: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (p: Promise<unknown>) => void pending.push(p) } as never;
+    const get = (q: string) => worker.fetch(new Request('https://mcmodsready.com/badge/geckolib.svg' + q), env, ctx);
+
+    const first = await get('?utm_source=a');
+    expect(await first.text()).toContain('Geckolib: ');
+    await Promise.all(pending);
+    const before = reads.length;
+    expect((await get('?utm_source=b')).status).toBe(200);
+    expect(reads.length).toBe(before);
+    expect([...stored.keys()]).toEqual(['https://mcmodsready.com/badge/geckolib.svg']);
   });
 });

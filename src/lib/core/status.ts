@@ -1,4 +1,5 @@
 import type { Cell, Drop, Env, GameVersion, LoaderSupport, ModProject } from './types';
+import { compareDrop } from './versions';
 
 const DAY = 86_400_000;
 
@@ -66,7 +67,7 @@ export function dropCell(s: LoaderSupport | undefined, drop: Drop, ctx: StatusCo
     }
     if (tagged.length) return { status: 'prerelease', patches: tagged };
     // past drops: the moment has gone, "not yet" would imply it's coming
-    if (compareDropIds(drop.id, ctx.currentDrop) < 0) return { status: 'no_build' };
+    if (compareDrop(drop.id, ctx.currentDrop) < 0) return { status: 'no_build' };
   }
   if (idleAndGone(s, ctx)) return { status: 'dropped' };
   return { status: 'not_yet' };
@@ -80,16 +81,10 @@ export function versionCell(s: LoaderSupport | undefined, gv: GameVersion, ctx: 
     if (gv.type === 'snapshot') return { status: 'snapshot', patches: [gv.id] };
     return { status: e[0] === 'r' ? 'ready' : 'prerelease', patches: [gv.id] };
   }
-  const current = gv.drop != null && compareDropIds(gv.drop, ctx.currentDrop) >= 0;
+  const current = gv.drop != null && compareDrop(gv.drop, ctx.currentDrop) >= 0;
   if (!current) return { status: 'no_build' };
   if (idleAndGone(s, ctx)) return { status: 'dropped' };
   return { status: 'not_yet' };
-}
-
-function compareDropIds(a: string, b: string): number {
-  const [a1, a2] = a.split('.').map(Number);
-  const [b1, b2] = b.split('.').map(Number);
-  return a1 - b1 || a2 - b2;
 }
 
 /** Days from release to first release build; builds published early count as 0. */

@@ -8,11 +8,12 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { alternativesFor, findRelations, SimilarityIndex, type AltCandidate } from '../src/lib/core/alternatives';
-import { dropCell, median, type StatusContext } from '../src/lib/core/status';
+import { dropCell, median } from '../src/lib/core/status';
 import { deriveModFile, projectFromHit } from '../src/lib/core/support';
+import { contextFor } from '../src/lib/core/targets';
 import { LOADERS, type Cell, type Loader, type ModFile, type ModProject, type ModVersion } from '../src/lib/core/types';
 import { buildDrops, buildGameVersions } from '../src/lib/core/versions';
-import type { FeedEvent, MatrixFile, MatrixMod, MetaFile, PageRef, StatsFile, VersionShard } from '../src/lib/data-schema';
+import { SCHEMA_VERSION, type FeedEvent, type MatrixFile, type MatrixMod, type MetaFile, type PageRef, type StatsFile, type VersionShard } from '../src/lib/data-schema';
 import { fetchManifest } from './mojang';
 import { modsForLoader, pool, versions, type SearchHit } from './modrinth';
 import { embedMods } from './embed';
@@ -125,12 +126,9 @@ async function main() {
   const generatedAt = new Date(now).toISOString();
   const bySlug = new Map(mods.map((m) => [m.slug, m]));
   const byId = new Map(mods.map((m) => [m.id, m]));
-  const ctxFor = (m: ModFile): StatusContext => ({
-    latestDrops: released.slice(0, 2),
-    currentDrop: released[0].id,
-    updated: m.updated,
-    now,
-  });
+  const ctxFor = (m: ModFile) => contextFor(m, { drops: released, versions: [] }, now);
+  // every released drop, plus the upcoming one when it's in the window
+  const cellDrops = allDrops.filter((d) => drops.includes(d) || !d.upcoming);
 
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
@@ -154,7 +152,7 @@ async function main() {
     const cells = new Map<string, Record<string, Cell>>();
     for (const m of lm) {
       const c: Record<string, Cell> = {};
-      for (const d of allDrops.filter((d) => drops.includes(d) || !d.upcoming)) c[d.id] = dropCell(m.loaders[loader], d, ctxFor(m));
+      for (const d of cellDrops) c[d.id] = dropCell(m.loaders[loader], d, ctxFor(m));
       cells.set(m.id, c);
     }
 
@@ -250,11 +248,9 @@ async function main() {
       }
     }
     const known = new Set(allVersions.map((v) => v.id));
-    for (const [gv, entries] of shards) {
-      if (!known.has(gv)) continue;
-      versionsWithData.add(gv);
-      await writeJson(`v/${loader}/${gv}.json`, { loader, version: gv, mods: entries } satisfies VersionShard);
-    }
+    const knownShards = [...shards].filter(([gv]) => known.has(gv));
+    for (const [gv] of knownShards) versionsWithData.add(gv);
+    await pool(knownShards, WRITES, ([gv, entries]) => writeJson(`v/${loader}/${gv}.json`, { loader, version: gv, mods: entries } satisfies VersionShard));
     const windowPatches = new Set(drops.flatMap((d) => [...d.patches, ...d.previews]));
     popularLegacy[loader] = allVersions
       .filter((v) => v.type === 'release' && !windowPatches.has(v.id))
@@ -267,17 +263,18 @@ async function main() {
   // 6. Per-mod files and the pre-rendered page list.
   const pageList: PageRef[] = mods.slice(0, PAGES).map((m) => ({ id: m.id, slug: m.slug }));
   const pageIds = new Set(pageList.map((p) => p.id));
-  for (const m of mods) {
+  await pool(mods, WRITES, async (m) => {
     // Downloads to the precision pages show them: exact counts change daily and made every file re-upload.
     await writeJson(`m/${m.id}.json`, { ...m, downloads: roughly(m.downloads), page: pageIds.has(m.id) } satisfies ModFile);
     // slug -> id lookup for badges (/badge/<slug>.svg)
     await writeJson(`slug/${m.slug}.json`, { id: m.id });
-  }
+  });
   await writeJson('pages.json', pageList);
 
   feed.sort((a, b) => b.at.localeCompare(a.at) || Number(b.top) - Number(a.top));
   await writeJson('feed.json', { generatedAt, events: feed.slice(0, 200) });
   const meta: MetaFile = {
+    schema: SCHEMA_VERSION,
     generatedAt,
     latestRelease: manifest.latest.release,
     latestSnapshot: manifest.latest.snapshot,
@@ -305,9 +302,15 @@ function windowHas(drops: { patches: string[]; previews: string[] }[], id: strin
   return drops.some((d) => d.patches.includes(id) || d.previews.includes(id));
 }
 
+/** How many files to write at once: tens of thousands of small ones, so one at a time is slow. */
+const WRITES = 32;
+const madeDirs = new Map<string, Promise<unknown>>();
+
 async function writeJson(rel: string, data: unknown) {
   const path = join(OUT, rel);
-  await mkdir(dirname(path), { recursive: true });
+  const dir = dirname(path);
+  if (!madeDirs.has(dir)) madeDirs.set(dir, mkdir(dir, { recursive: true }));
+  await madeDirs.get(dir);
   await writeFile(path, JSON.stringify(data));
 }
 

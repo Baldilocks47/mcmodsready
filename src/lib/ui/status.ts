@@ -31,7 +31,7 @@ export const ALT_REASON = {
 /** Guessed suggestions get a warning; hand-checked ones and direct continuations don't. */
 export const altNeedsCaveat = (alts: { curated: boolean; reason?: string }[]) => alts.some((a) => !a.curated && a.reason !== 'port' && a.reason !== 'fork');
 
-export const LOADER_LABEL = { fabric: 'Fabric', neoforge: 'NeoForge', forge: 'Forge' } as const;
+export { LOADER_LABEL } from '../core/types';
 
 export const DECLARED_NOTE =
   'Statuses are author-declared on Modrinth: "ready" means declared compatible, not tested.';
